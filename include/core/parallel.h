@@ -12,6 +12,7 @@
 #include <future>
 #include <initializer_list>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 #include <string>
 #include <thread>
@@ -47,9 +48,9 @@ private:
         std::thread::id tid;
         T               value;
     };
-    std::shared_mutex                  mutex;
-    std::vector<pstd::optional<Entry>> hashTable;
-    std::function<T(void)>             create;
+    std::shared_mutex                 mutex;
+    std::vector<std::optional<Entry>> hashTable;
+    std::function<T(void)>            create;
 };
 
 // ThreadLocal Inline Methods
@@ -63,7 +64,11 @@ inline T &ThreadLocal<T>::Get() {
 
     mutex.lock_shared();
     while (true) {
-        CHECK_LT(++tries, hashTable.size()); // full hash table
+        if (++tries >= hashTable.size()) {
+            // Prevent infinite loop - full hash table
+            mutex.unlock_shared();
+            throw std::runtime_error("ThreadLocal hash table is full");
+        }
 
         if (hashTable[hash] && hashTable[hash]->tid == tid) {
             // Found it
@@ -135,7 +140,6 @@ private:
 };
 
 void ParallelFor(int64_t start, int64_t end, std::function<void(int64_t, int64_t)> func);
-void ParallelFor2D(const Bounds2i &extent, std::function<void(Bounds2i)> func);
 
 // Parallel Inline Functions
 inline void ParallelFor(int64_t start, int64_t end, std::function<void(int64_t)> func) {
@@ -145,20 +149,18 @@ inline void ParallelFor(int64_t start, int64_t end, std::function<void(int64_t)>
     });
 }
 
-inline void ParallelFor2D(const Bounds2i &extent, std::function<void(Point2i)> func) {
-    ParallelFor2D(extent, [&func](Bounds2i b) {
-        for (Point2i p : b)
-            func(p);
-    });
-}
-
 class ThreadPool;
 
 // ParallelJob Definition
 class ParallelJob {
 public:
     // ParallelJob Public Methods
-    virtual ~ParallelJob() { DCHECK(removed); }
+    virtual ~ParallelJob() { 
+        // Verify job is removed from list
+        if (!removed) {
+            fprintf(stderr, "Error: ParallelJob destroyed before being removed from job list\n");
+        }
+    }
 
     virtual bool HaveWork() const                            = 0;
     virtual void RunStep(std::unique_lock<std::mutex> *lock) = 0;
@@ -172,7 +174,9 @@ public:
 
 protected:
     std::string BaseToString() const {
-        return StringPrintf("activeWorkers: %d removed: %s", activeWorkers, removed);
+        std::string result = "activeWorkers: " + std::to_string(activeWorkers);
+        result += " removed: " + std::string(removed ? "true" : "false");
+        return result;
     }
 
 private:
@@ -235,7 +239,7 @@ public:
         started = true;
         lock->unlock();
         // Execute asynchronous work and notify waiting threads of its completion
-        T                            r = func();
+        T r = func();
         std::unique_lock<std::mutex> ul(mutex);
         result = r;
         cv.notify_all();
@@ -252,7 +256,7 @@ public:
         return *result;
     }
 
-    pstd::optional<T> TryGetResult(std::mutex *extMutex) {
+    std::optional<T> TryGetResult(std::mutex *extMutex) {
         {
             std::lock_guard<std::mutex> lock(mutex);
             if (result)
@@ -274,24 +278,25 @@ public:
     }
 
     void DoWork() {
-        T                            r = func();
+        T r = func();
         std::unique_lock<std::mutex> l(mutex);
-        CHECK(!result.has_value());
-        result = r;
-        cv.notify_all();
+        if (!result.has_value()) {
+            result = r;
+            cv.notify_all();
+        }
     }
 
     std::string ToString() const {
-        return StringPrintf("[ AsyncJob started: %s ]", started);
+        return std::string("[ AsyncJob started: ") + (started ? "true" : "false") + " ]";
     }
 
 private:
     // AsyncJob Private Members
-    std::function<T(void)>  func;
-    bool                    started = false;
-    pstd::optional<T>       result;
-    mutable std::mutex      mutex;
-    std::condition_variable cv;
+    std::function<T(void)>   func;
+    bool                     started = false;
+    std::optional<T>         result;
+    mutable std::mutex       mutex;
+    std::condition_variable  cv;
 };
 
 void ForEachThread(std::function<void(void)> func);
@@ -303,8 +308,8 @@ void ReenableThreadPool();
 template <typename F, typename... Args>
 inline auto RunAsync(F func, Args &&...args) {
     // Create _AsyncJob_ for _func_ and _args_
-    auto fvoid       = std::bind(func, std::forward<Args>(args)...);
-    using R          = typename std::invoke_result_t<F, Args...>;
+    auto fvoid = std::bind(func, std::forward<Args>(args)...);
+    using R = typename std::invoke_result_t<F, Args...>;
     AsyncJob<R> *job = new AsyncJob<R>(std::move(fvoid));
 
     // Enqueue _job_ or run it immediately
@@ -318,5 +323,3 @@ inline auto RunAsync(F func, Args &&...args) {
 }
 
 } // namespace gquery
-
-#endif // PBRT_UTIL_PARALLEL_H

@@ -3,7 +3,7 @@
 // SPDX: Apache-2.0
 
 #include <core/parallel.h>
-#include <core/check.h>
+#include <util/check.h>
 #include <algorithm>
 #include <iterator>
 #include <list>
@@ -17,7 +17,9 @@ bool Barrier::Block() {
     std::unique_lock<std::mutex> lock(mutex);
 
     --numToBlock;
-    ASSERT_STANDARD(numToBlock >= 0, "numToBlock is negative");
+    if (numToBlock < 0) {
+        throw std::runtime_error("Barrier::Block: numToBlock is negative");
+    }
 
     if (numToBlock > 0) {
         cv.wait(lock, [this]() { return numToBlock == 0; });
@@ -36,17 +38,10 @@ ThreadPool::ThreadPool(int nThreads) {
 }
 
 void ThreadPool::Worker() {
-    LOG_VERBOSE("Started execution in worker thread");
-
-#ifdef PBRT_BUILD_GPU_RENDERER
-    GPUThreadInit();
-#endif  // PBRT_BUILD_GPU_RENDERER
-
+    // Log message removed since we don't have that dependency
     std::unique_lock<std::mutex> lock(mutex);
     while (!shutdownThreads)
         WorkOrWait(&lock, false);
-
-    LOG_VERBOSE("Exiting worker thread");
 }
 
 std::unique_lock<std::mutex> ThreadPool::AddToJobList(ParallelJob *job) {
@@ -62,7 +57,10 @@ std::unique_lock<std::mutex> ThreadPool::AddToJobList(ParallelJob *job) {
 }
 
 void ThreadPool::WorkOrWait(std::unique_lock<std::mutex> *lock, bool isEnqueuingThread) {
-    DCHECK(lock->owns_lock());
+    if (!lock->owns_lock()) {
+        throw std::runtime_error("WorkOrWait called without lock");
+    }
+    
     // Return if this is a worker thread and the thread pool is disabled
     if (!isEnqueuingThread && disabled) {
         jobListCondition.wait(*lock);
@@ -77,8 +75,9 @@ void ThreadPool::WorkOrWait(std::unique_lock<std::mutex> *lock, bool isEnqueuing
         job->activeWorkers++;
         job->RunStep(lock);
         // Handle post-job-execution details
-        DCHECK(!lock->owns_lock());
-        lock->lock();
+        if (!lock->owns_lock()) {
+            lock->lock();
+        }
         job->activeWorkers--;
         if (job->Finished())
             jobListCondition.notify_all();
@@ -89,12 +88,16 @@ void ThreadPool::WorkOrWait(std::unique_lock<std::mutex> *lock, bool isEnqueuing
 }
 
 void ThreadPool::RemoveFromJobList(ParallelJob *job) {
-    DCHECK(!job->removed);
+    if (job->removed) {
+        throw std::runtime_error("Job already removed from list");
+    }
 
     if (job->prev)
         job->prev->next = job->next;
     else {
-        DCHECK(jobList == job);
+        if (jobList != job) {
+            throw std::runtime_error("Job not at head of list as expected");
+        }
         jobList = job->next;
     }
     if (job->next)
@@ -115,8 +118,9 @@ bool ThreadPool::WorkOrReturn() {
     // Execute work for _job_
     job->activeWorkers++;
     job->RunStep(&lock);
-    DCHECK(!lock.owns_lock());
-    lock.lock();
+    if (!lock.owns_lock()) {
+        lock.lock();
+    }
     job->activeWorkers--;
     if (job->Finished())
         jobListCondition.notify_all();
@@ -135,13 +139,19 @@ void ThreadPool::ForEachThread(std::function<void(void)> func) {
 }
 
 void ThreadPool::Disable() {
-    CHECK(!disabled);
+    if (disabled) {
+        throw std::runtime_error("ThreadPool already disabled");
+    }
     disabled = true;
-    CHECK(jobList == nullptr);  // Nothing should be running when Disable() is called.
+    if (jobList != nullptr) {
+        throw std::runtime_error("Jobs are still running when Disable() is called");
+    }
 }
 
 void ThreadPool::Reenable() {
-    CHECK(disabled);
+    if (!disabled) {
+        throw std::runtime_error("ThreadPool is not disabled");
+    }
     disabled = false;
 }
 
@@ -160,8 +170,10 @@ ThreadPool::~ThreadPool() {
 }
 
 std::string ThreadPool::ToString() const {
-    std::string s = StringPrintf("[ ThreadPool threads.size(): %d shutdownThreads: %s ",
-                                 threads.size(), shutdownThreads);
+    std::string s = "[ ThreadPool threads.size(): " + 
+                     std::to_string(threads.size()) + 
+                     " shutdownThreads: " + 
+                     (shutdownThreads ? "true" : "false") + " ";
     if (mutex.try_lock()) {
         s += "jobList: [ ";
         ParallelJob *job = jobList;
@@ -177,7 +189,9 @@ std::string ThreadPool::ToString() const {
 }
 
 bool DoParallelWork() {
-    CHECK(ParallelJob::threadPool);
+    if (!ParallelJob::threadPool) {
+        throw std::runtime_error("ParallelJob::threadPool is null");
+    }
     // lock should be held when this is called...
     return ParallelJob::threadPool->WorkOrReturn();
 }
@@ -198,40 +212,15 @@ class ParallelForLoop1D : public ParallelJob {
     void RunStep(std::unique_lock<std::mutex> *lock);
 
     std::string ToString() const {
-        return StringPrintf("[ ParallelForLoop1D nextIndex: %d endIndex: %d "
-                            "chunkSize: %d ]",
-                            nextIndex, endIndex, chunkSize);
+        return "[ ParallelForLoop1D nextIndex: " + std::to_string(nextIndex) + 
+               " endIndex: " + std::to_string(endIndex) + 
+               " chunkSize: " + std::to_string(chunkSize) + " ]";
     }
 
   private:
     // ParallelForLoop1D Private Members
     std::function<void(int64_t, int64_t)> func;
     int64_t nextIndex, endIndex;
-    int chunkSize;
-};
-
-class ParallelForLoop2D : public ParallelJob {
-  public:
-    ParallelForLoop2D(const Bounds2i &extent, int chunkSize,
-                      std::function<void(Bounds2i)> func)
-        : func(std::move(func)),
-          extent(extent),
-          nextStart(extent.pMin),
-          chunkSize(chunkSize) {}
-
-    bool HaveWork() const { return nextStart.y < extent.pMax.y; }
-    void RunStep(std::unique_lock<std::mutex> *lock);
-
-    std::string ToString() const {
-        return StringPrintf("[ ParallelForLoop2D extent: %s nextStart: %s "
-                            "chunkSize: %d ]",
-                            extent, nextStart, chunkSize);
-    }
-
-  private:
-    std::function<void(Bounds2i)> func;
-    const Bounds2i extent;
-    Point2i nextStart;
     int chunkSize;
 };
 
@@ -251,31 +240,11 @@ void ParallelForLoop1D::RunStep(std::unique_lock<std::mutex> *lock) {
     func(indexStart, indexEnd);
 }
 
-void ParallelForLoop2D::RunStep(std::unique_lock<std::mutex> *lock) {
-    // Compute extent for this step
-    Point2i end = nextStart + Vector2i(chunkSize, chunkSize);
-    Bounds2i b = Intersect(Bounds2i(nextStart, end), extent);
-    CHECK(!b.IsEmpty());
-
-    // Advance to be ready for the next extent.
-    nextStart.x += chunkSize;
-    if (nextStart.x >= extent.pMax.x) {
-        nextStart.x = extent.pMin.x;
-        nextStart.y += chunkSize;
-    }
-
-    if (!HaveWork())
-        threadPool->RemoveFromJobList(this);
-
-    lock->unlock();
-
-    // Run the loop iteration
-    func(b);
-}
-
 // Parallel Function Definitions
 void ParallelFor(int64_t start, int64_t end, std::function<void(int64_t, int64_t)> func) {
-    CHECK(ParallelJob::threadPool);
+    if (!ParallelJob::threadPool) {
+        throw std::runtime_error("ParallelJob::threadPool is null");
+    }
     if (start == end)
         return;
     // Compute chunk size for parallel loop
@@ -283,31 +252,6 @@ void ParallelFor(int64_t start, int64_t end, std::function<void(int64_t, int64_t
 
     // Create and enqueue _ParallelForLoop1D_ for this loop
     ParallelForLoop1D loop(start, end, chunkSize, std::move(func));
-    std::unique_lock<std::mutex> lock = ParallelJob::threadPool->AddToJobList(&loop);
-
-    // Help out with parallel loop iterations in the current thread
-    while (!loop.Finished())
-        ParallelJob::threadPool->WorkOrWait(&lock, true);
-}
-
-void ParallelFor2D(const Bounds2i &extent, std::function<void(Bounds2i)> func) {
-    CHECK(ParallelJob::threadPool);
-
-    if (extent.IsEmpty())
-        return;
-    if (extent.Area() == 1) {
-        func(extent);
-        return;
-    }
-
-    // Want at least 8 tiles per thread, subject to not too big and not too
-    // small.
-    // TODO: should we do non-square?
-    int tileSize = Clamp(int(std::sqrt(extent.Diagonal().x * extent.Diagonal().y /
-                                       (8 * RunningThreads()))),
-                         1, 32);
-
-    ParallelForLoop2D loop(extent, tileSize, std::move(func));
     std::unique_lock<std::mutex> lock = ParallelJob::threadPool->AddToJobList(&loop);
 
     // Help out with parallel loop iterations in the current thread
@@ -326,7 +270,9 @@ int RunningThreads() {
 }
 
 void ParallelInit(int nThreads) {
-    CHECK(!ParallelJob::threadPool);
+    if (ParallelJob::threadPool) {
+        throw std::runtime_error("ParallelJob::threadPool already initialized");
+    }
     if (nThreads <= 0)
         nThreads = AvailableCores();
     ParallelJob::threadPool = new ThreadPool(nThreads);
@@ -343,13 +289,17 @@ void ForEachThread(std::function<void(void)> func) {
 }
 
 void DisableThreadPool() {
-    CHECK(ParallelJob::threadPool);
+    if (!ParallelJob::threadPool) {
+        throw std::runtime_error("ParallelJob::threadPool is null");
+    }
     ParallelJob::threadPool->Disable();
 }
 
 void ReenableThreadPool() {
-    CHECK(ParallelJob::threadPool);
+    if (!ParallelJob::threadPool) {
+        throw std::runtime_error("ParallelJob::threadPool is null");
+    }
     ParallelJob::threadPool->Reenable();
 }
 
-}  // namespace pbrt
+}  // namespace gquery
