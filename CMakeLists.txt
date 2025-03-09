@@ -1,3 +1,17 @@
+# Copyright 2024 gQuery Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 cmake_minimum_required(VERSION 3.15...3.27)
 project(gquery)
 
@@ -47,13 +61,36 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+# Find or fetch spdlog with bundled fmt
+find_package(spdlog QUIET)
+if(NOT spdlog_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.12.0  # Use a stable version
+    )
+    # Disable spdlog tests and examples
+    set(SPDLOG_BUILD_EXAMPLE OFF CACHE INTERNAL "")
+    set(SPDLOG_BUILD_TESTS OFF CACHE INTERNAL "")
+    set(SPDLOG_INSTALL OFF CACHE INTERNAL "")
+    # Use spdlog's bundled fmt (this is the default, so we don't need to set it)
+    # set(SPDLOG_FMT_EXTERNAL OFF CACHE INTERNAL "")
+    FetchContent_MakeAvailable(spdlog)
+endif()
 
 include_directories(include)
 
 add_library(gquery STATIC
+  src/util/log.cpp
+  src/util/check.cpp    
+  src/util/print.cpp
   src/core/bvh.cpp
 )
-target_link_libraries(gquery PUBLIC Eigen3::Eigen)
+target_link_libraries(gquery PUBLIC 
+    Eigen3::Eigen 
+    spdlog::spdlog
+)
 
 nanobind_add_module(
   # Name of the extension
@@ -92,3 +129,38 @@ nanobind_add_stub(
 install(TARGETS gquery_ext LIBRARY DESTINATION gquery)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed 
               ${CMAKE_CURRENT_BINARY_DIR}/gquery_ext.pyi DESTINATION gquery)
+
+# ------------------------------------------------------------------------------
+# Add tests
+# ------------------------------------------------------------------------------
+include(GoogleTest)
+
+# Define all test files
+set(TEST_SOURCES
+  src/tests/test_main.cpp
+  # Add additional test files here, e.g.:
+  # src/tests/test_core.cpp
+  # src/tests/test_util.cpp
+)
+
+# Create test executable
+add_executable(gquery_test ${TEST_SOURCES})
+
+# Link dependencies
+target_link_libraries(gquery_test 
+  PRIVATE 
+    gquery 
+    gtest_main
+    spdlog::spdlog
+)
+
+# Enable CTest integration with Google Test discovery
+gtest_discover_tests(gquery_test)
+
+# Optional: Add a custom target for running tests with more detailed output
+add_custom_target(test_verbose
+  COMMAND ${CMAKE_CTEST_COMMAND} --verbose
+  DEPENDS gquery_test
+)
+
+
