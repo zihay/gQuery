@@ -50,6 +50,11 @@ FetchContent_MakeAvailable(googletest)
 
 include_directories(include)
 
+add_library(gquery STATIC
+  src/core/bvh.cpp
+)
+target_link_libraries(gquery PUBLIC Eigen3::Eigen)
+
 nanobind_add_module(
   # Name of the extension
   gquery_ext
@@ -66,33 +71,9 @@ nanobind_add_module(
   # replace this flag by NB_SHARED to conserve space by
   # reusing a shared libnanobind across libraries
   NB_STATIC
-
-  # Source code goes here
-  src/core/bvh.cpp
   src/gquery.cpp
-#   src/core/log.cpp
-#   src/gquery.cpp
-#   src/scenes/circle.cpp
-#   src/scenes/ring.cpp
-#   src/scenes/polyline.cpp
-#   src/scenes/mesh.cpp
-#   src/solvers/wos.cpp
-#   src/solvers/wost.cpp
-#   src/solvers/wost_3d.cpp
-#   src/solvers/wost_one_step.cpp
-#   src/solvers/wost_original.cpp
-#   src/solvers/wos_grad.cpp
-#   src/solvers/wost_grad.cpp
-#   src/solvers/wost_der.cpp
-#   src/scenes/slab.cpp
-#   src/test_scenes/polyline_no_source.cpp
-#   src/test_scenes/polyline_with_source.cpp
-#   src/test_scenes/mesh_with_source.cpp
-#   src/test_scenes/mesh_no_source.cpp
-#   src/main.cpp
 )
-
-target_link_libraries(gquery_ext PRIVATE Eigen3::Eigen)
+target_link_libraries(gquery_ext PRIVATE gquery)
 
 if(APPLE)
   set_target_properties(gquery_ext PROPERTIES
