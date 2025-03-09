@@ -1,8 +1,8 @@
 gQuery
-Copyright 2024 gQuery Contributors
+Copyright (c) 2024 gQuery Contributors
 
 This product includes software developed by the gQuery Contributors.
 
-This product includes software from the PBRT project (https://pbrt.org),
-Copyright 1998-2020 Matt Pharr, Wenzel Jakob, and Greg Humphreys,
+This product includes code derived from the PBRT project (https://pbrt.org),
+Copyright (c) 1998-2020 Matt Pharr, Wenzel Jakob, and Greg Humphreys,
 licensed under the Apache License, Version 2.0. 
