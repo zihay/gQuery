@@ -97,8 +97,8 @@ inline T &ThreadLocal<T>::Get() {
                 }
             }
 
-            hashTable[hash] = Entry{ tid, std::move(newItem) };
-            T &threadLocal  = hashTable[hash]->value;
+            hashTable[hash].emplace(Entry{ tid, std::move(newItem) });
+            T &threadLocal = hashTable[hash]->value;
             mutex.unlock();
             return threadLocal;
         }
