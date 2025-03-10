@@ -28,7 +28,7 @@ struct BoundingBox {
     }
 
     Vector extent() const { return p_max - p_min; }
-    Vector centroid() const { return (p_min + p_max) / 2; }
+    Vector centroid() const { return (p_min + p_max) * 0.5f; }
 
     // Calculates perimeter for 2D and surface area for 3D
     Float surface_area() const {
@@ -47,13 +47,9 @@ struct BoundingBox {
     }
 
     int max_dimension() const {
-        Vector ext = extent();
-        int    dim = 0;
-        for (int i = 1; i < DIM; ++i) {
-            if (ext[i] > ext[dim])
-                dim = i;
-        }
-        return dim;
+        int   index;
+        Float max_length = (p_max - p_min).maxCoeff(&index);
+        return index;
     }
 
     Vector offset(const Vector &p) const {
