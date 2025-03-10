@@ -1,39 +1,105 @@
 #pragma once
+/**
+ * @file bvh.h
+ * @brief Bounding Volume Hierarchy implementation for spatial partitioning.
+ * 
+ * BVH (Bounding Volume Hierarchy) is a tree structure that organizes geometric primitives
+ * for efficient spatial queries like ray tracing, collision detection, and nearest neighbor searches.
+ * This implementation supports 2D primitives and uses surface area heuristics for optimization.
+ */
 #include <core/bounding_box.h>
 #include <core/fwd.h>
 #include <core/parallel.h>
 #include <primitives/line_segment.h>
 
+#include <atomic>
+#include <memory_resource>
+#include <span>
+#include <vector>
+
 namespace gquery {
 
+/** @brief Allocator used for memory management during BVH construction */
+using Allocator = std::pmr::polymorphic_allocator<std::byte>;
+
+/**
+ * @brief Wraps a primitive with its bounding box and original index for BVH construction.
+ * 
+ * This structure maintains the mapping between primitives in the BVH and their original collection.
+ */
 struct BVHPrimitive {
     using BoundingBox = BoundingBox<2>;
 
-    size_t      primitive_index;
-    BoundingBox bounding_box;
+    size_t      primitive_index;  ///< Index in the original primitive collection
+    BoundingBox bounding_box;     ///< Axis-aligned bounding box of the primitive
 };
+
+/**
+ * @brief A node in the BVH tree structure.
+ * 
+ * Can be either:
+ * - An interior node with child pointers (n_primitives = 0)
+ * - A leaf node with primitives (left = right = nullptr)
+ */
 struct BVHBuildNode {
     using BoundingBox = BoundingBox<2>;
 
-    BoundingBox   box;
-    BVHBuildNode *left;
-    BVHBuildNode *right;
-    int           first_prim_offset;
-    int           n_primitives;
+    BoundingBox   box;               ///< Axis-aligned bounding box containing all primitives in this node
+    BVHBuildNode *left;              ///< Left child (nullptr for leaf nodes)
+    BVHBuildNode *right;             ///< Right child (nullptr for leaf nodes)
+    int           first_prim_offset; ///< Starting index of primitives in this node
+    int           n_primitives;      ///< Number of primitives (0 for interior nodes)
 };
 
+/**
+ * @brief Main BVH class that builds and contains the acceleration structure.
+ * 
+ * Provides methods for constructing and traversing a Bounding Volume Hierarchy
+ * optimized for spatial queries on 2D line segments.
+ */
 class BVH {
 public:
+    /**
+     * @brief Methods for splitting nodes during BVH construction.
+     */
     enum class SplitMethod {
-        SAH
+        SAH  ///< Surface Area Heuristic - balances construction cost vs traversal efficiency
     };
 
+    /**
+     * @brief Builds a BVH from a collection of line segments.
+     * 
+     * @param primitives The collection of line segments to organize
+     * @param max_prims_in_node Maximum number of primitives in a leaf node
+     * @param split_method Method used to determine node splitting
+     */
     BVH(const std::vector<LineSegment> &primitives, int max_prims_in_node = 10, SplitMethod split_method = SplitMethod::SAH);
-    BVHBuildNode *build_recursive();
+    
+    /**
+     * @brief Core recursive function that builds the BVH tree structure.
+     * 
+     * @param thread_allocators Thread-local allocators for parallel construction
+     * @param primitives Span of primitives to organize in this subtree
+     * @param total_nodes Counter for tracking the total number of nodes created
+     * @param ordered_prims_offset Current offset in the ordered primitives array
+     * @param ordered_prims Vector of primitives being reordered for cache-friendly traversal
+     * @return Pointer to the root of the constructed subtree
+     * 
+     * This function:
+     * - Creates leaf nodes when the primitive count is small enough
+     * - Splits primitives using the selected method and creates child nodes
+     * - Uses thread-local allocators for better performance
+     * - Reorders primitives for more cache-friendly traversal
+     */
+    BVHBuildNode *build_recursive(ThreadLocal<Allocator>   &thread_allocators,
+                                  std::span<BVHPrimitive>   primitives,
+                                  std::atomic<int>         &total_nodes,
+                                  std::atomic<int>         &ordered_prims_offset,
+                                  std::vector<LineSegment> &ordered_prims);
 
-    int                      m_max_prims_in_node;
-    std::vector<LineSegment> m_primitives;
-    SplitMethod              m_split_method;
+    int                      m_max_prims_in_node;  ///< Maximum primitives in a leaf node
+    std::vector<LineSegment> m_primitives;         ///< Original primitives
+    SplitMethod              m_split_method;       ///< Method used for node splitting
 };
 
 } // namespace gquery
