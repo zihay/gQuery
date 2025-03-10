@@ -1,6 +1,6 @@
 #pragma once
 
-#include <fwd.h>
+#include <core/fwd.h>
 
 namespace gquery {
 

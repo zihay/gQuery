@@ -1,6 +1,7 @@
 #pragma once
 #include <core/bounding_box.h>
-#include <fwd.h>
+#include <core/fwd.h>
+#include <core/parallel.h>
 #include <primitives/line_segment.h>
 
 namespace gquery {
@@ -11,7 +12,6 @@ struct BVHPrimitive {
     size_t      primitive_index;
     BoundingBox bounding_box;
 };
-
 struct BVHBuildNode {
     using BoundingBox = BoundingBox<2>;
 
