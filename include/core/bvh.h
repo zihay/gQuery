@@ -22,6 +22,13 @@ namespace gquery {
 /** @brief Allocator used for memory management during BVH construction */
 using Allocator = std::pmr::polymorphic_allocator<std::byte>;
 
+// Forward declarations
+template <size_t DIM>
+struct SoABVHNode;
+
+template <size_t DIM>
+struct SoABVH;
+
 /**
  * @brief Wraps a primitive with its bounding box and original index for BVH construction.
  *
@@ -103,6 +110,9 @@ public:
         SAH ///< Surface Area Heuristic - balances construction cost vs traversal efficiency
     };
 
+    BVH(const std::vector<Vector2> &vertices, const std::vector<Vector2i> &indices,
+        int max_prims_in_node = 10, SplitMethod split_method = SplitMethod::SAH);
+
     /**
      * @brief Builds a BVH from a collection of line segments.
      *
@@ -111,6 +121,8 @@ public:
      * @param split_method Method used to determine node splitting
      */
     BVH(const std::vector<LineSegment> &primitives, int max_prims_in_node = 10, SplitMethod split_method = SplitMethod::SAH);
+
+    void build();
 
     /**
      * @brief Core recursive function that builds the BVH tree structure.
@@ -136,11 +148,14 @@ public:
 
     int flatten_bvh(BVHBuildNode *node, int *offset);
 
-    int                        m_max_prims_in_node; ///< Maximum primitives in a leaf node
-    std::vector<LineSegment>   m_primitives;        ///< Original primitives
-    std::vector<LineSegment>   m_ordered_prims;     ///< Ordered primitives
-    SplitMethod                m_split_method;      ///< Method used for node splitting
-    std::vector<BVHNode> m_nodes;             ///< Flattened BVH nodes
+    // convert to SoABVH
+    SoABVH<2> to_soa_bvh() const;
+
+    int                      m_max_prims_in_node; ///< Maximum primitives in a leaf node
+    std::vector<LineSegment> m_primitives;        ///< Original primitives
+    std::vector<LineSegment> m_ordered_prims;     ///< Ordered primitives
+    SplitMethod              m_split_method;      ///< Method used for node splitting
+    std::vector<BVHNode>     m_nodes;             ///< Flattened BVH nodes
 };
 
 template <size_t DIM>
@@ -155,6 +170,7 @@ template <size_t DIM>
 struct SoABVH {
     SoABVH() = default;
 
+    // constructor from BVH
     SoABVH(const BVH &bvh) {
         for (const auto &node : bvh.m_nodes) {
             flat_tree.box.p_min.push_back(node.box.p_min);

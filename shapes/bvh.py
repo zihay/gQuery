@@ -1,12 +1,7 @@
-from dataclasses import dataclass
-from geometries.line_segment import LineSegment
-from scenes.geometry import SilhouetteVertex
 from core.fwd import *
-from scenes.primitive import BoundaryType
-from utils.psim import draw_box, draw_point
-from wost.greens_G import GreensBallDirichlet
-from wost.math_utils import in_range
-from wost.scene import BoundarySamplingRecord, ClosestPointRecord, ClosestSilhouettePointRecord, Intersection, SilhouetteSamplingRecord
+from dataclasses import dataclass
+from shapes.line_segment import LineSegment
+from shapes.primitive import BoundarySamplingRecord, ClosestPointRecord, Intersection
 
 
 @dr.syntax
@@ -133,7 +128,6 @@ class TraversalStack:
 class BVH:
     flat_tree: BVHNode
     primitives: LineSegment
-    silhouettes: SilhouetteVertex
 
     def __init__(self, vertices: Array2, indices: Array2i, types: Int):
         import diff_wost as dw
@@ -301,36 +295,6 @@ class BVH:
         # return dr.abs(GreensBallDirichlet(c=x, R=R).G(x, p))
         return Float(1.)
 
-    # @dr.syntax
-    # def sample_boundary(self, x: Array2, R: Float, sampler: PCG32) -> BoundarySamplingRecord:
-    #     b_rec = dr.zeros(BoundarySamplingRecord)
-    #     hit = Bool(False)
-    #     pdf = Float(1.)
-    #     sorted_prim_id = Int(-1)
-    #     i = Int(0)
-    #     total_primitive_weight = Float(0.)
-    #     while i < dr.width(self.primitives):
-    #         prim = dr.gather(LineSegment, self.primitives, i)
-    #         surface_area = prim.surface_area()
-    #         total_primitive_weight += surface_area
-    #         selection_prob = surface_area / total_primitive_weight
-    #         u = sampler.next_float32()
-    #         if u < selection_prob:  # select primitive
-    #             sorted_prim_id = prim.sorted_index
-    #             hit = Bool(True)
-    #         i += 1
-
-    #     prim = dr.gather(LineSegment, self.primitives, sorted_prim_id)
-    #     pdf = prim.surface_area() / total_primitive_weight
-    #     p, _pdf, t = prim.sample_point(sampler)
-    #     b_rec = BoundarySamplingRecord(p=p,
-    #                                    n=prim.normal(),
-    #                                    t=t,
-    #                                    pdf=pdf * _pdf,
-    #                                    prim_id=prim.index,
-    #                                    type=prim.type)
-    #     return hit, b_rec
-
     @dr.syntax
     def sample_boundary(self, x: Array2, R: Float, sampler: PCG32):
         b_rec = dr.zeros(BoundarySamplingRecord)
@@ -387,7 +351,6 @@ class BVH:
                         selection_prob = surface_area / total_primitive_weight
                         u = sampler.next_float32()
                         if u < selection_prob:  # select primitive
-                            # u = u / selection_prob  # rescale u to [0, 1]
                             prim_id = prim.index
                             sorted_prim_id = prim.sorted_index
                     j += 1
@@ -422,15 +385,10 @@ class BVH:
                     traversal_prob1 = 1. - traversal_prob0
                     u = sampler.next_float32()
                     if u < traversal_prob0:
-                        # choose left child
-                        # u = u / traversal_prob0  # rescale u to [0, 1]
                         node_index = node_index + 1  # jump to left child
                         pdf *= traversal_prob0
                         r_max = d_max0
                     else:
-                        # choose right child
-                        # u = (u - traversal_prob0) / \
-                        #     traversal_prob1  # rescale u to [0, 1]
                         node_index = node_index + node.second_child_offset  # jump to right child
                         pdf *= traversal_prob1
                         r_max = d_max1

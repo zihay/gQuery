@@ -86,8 +86,26 @@ public:
     constexpr static int m_n_buckets = 12;
 };
 
+BVH::BVH(const std::vector<Vector2> &vertices, const std::vector<Vector2i> &indices,
+         int max_prims_in_node, SplitMethod split_method)
+    : m_max_prims_in_node(max_prims_in_node), m_split_method(split_method) {
+    m_primitives.reserve(indices.size());
+    for (int i = 0; i < indices.size(); ++i) {
+        auto index = indices[i];
+        auto v0    = vertices[index[0]];
+        auto v1    = vertices[index[1]];
+        m_primitives.push_back(LineSegment{ v0, v1 });
+    }
+
+    build();
+}
+
 BVH::BVH(const std::vector<LineSegment> &primitives, int max_prims_in_node, SplitMethod split_method)
     : m_primitives(std::move(primitives)), m_max_prims_in_node(max_prims_in_node), m_split_method(split_method) {
+    build();
+}
+
+void BVH::build() {
     CHECK(!m_primitives.empty());
     std::vector<BVHPrimitive> bvh_primitives(m_primitives.size());
     for (size_t i = 0; i < m_primitives.size(); ++i) {
@@ -244,8 +262,8 @@ BVHBuildNode *BVH::build_recursive(ThreadLocal<Allocator>   &thread_allocators,
 int BVH::flatten_bvh(BVHBuildNode *node, int *offset) {
     // use DFS to flatten the BVH
     BVHNode *linear_node = &m_nodes[*offset];
-    linear_node->box           = node->box;
-    int node_offset            = (*offset)++;
+    linear_node->box     = node->box;
+    int node_offset      = (*offset)++;
     if (node->n_primitives > 0) { // leaf node
         CHECK(!node->left and !node->right);
         CHECK_LT(node->n_primitives, (1 << 16) - 1);
@@ -258,6 +276,11 @@ int BVH::flatten_bvh(BVHBuildNode *node, int *offset) {
         linear_node->secondChildOffset = flatten_bvh(node->right, offset);
     }
     return node_offset;
+}
+
+SoABVH<2> BVH::to_soa_bvh() const {
+    SoABVH<2> soa_bvh(*this);
+    return soa_bvh;
 }
 
 } // namespace gquery
