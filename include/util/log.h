@@ -52,10 +52,10 @@ void Log(LogLevel level, const char *file, int line, const char *message);
 
 // Template declarations for formatted logging
 template <typename... Args>
-void Log(LogLevel level, const char *file, int line, const char *fmt, Args&&... args);
+void Log(LogLevel level, const char *file, int line, const char *format_str, Args&&... args);
 
 template <typename... Args>
-[[noreturn]] void LogFatal(LogLevel level, const char *file, int line, const char *fmt, Args&&... args);
+[[noreturn]] void LogFatal(LogLevel level, const char *file, int line, const char *format_str, Args&&... args);
 
 // Logging macros
 #define LOG_VERBOSE(...) \
@@ -84,26 +84,26 @@ namespace internal {
 namespace gquery {
 
 template <typename... Args>
-void Log(LogLevel level, const char *file, int line, const char *fmt, Args&&... args) {
+void Log(LogLevel level, const char *file, int line, const char *format_str, Args&&... args) {
     try {
-        std::string message = fmt::format(fmt, std::forward<Args>(args)...);
+        std::string message = fmt::format(format_str, std::forward<Args>(args)...);
         Log(level, file, line, message.c_str());
     } catch (const fmt::format_error& e) {
         Log(LogLevel::Error, file, line, 
             fmt::format("Format error in log message: {}", e.what()).c_str());
-        Log(level, file, line, fmt);
+        Log(level, file, line, format_str);
     }
 }
 
 template <typename... Args>
-[[noreturn]] void LogFatal(LogLevel level, const char *file, int line, const char *fmt, Args&&... args) {
+[[noreturn]] void LogFatal(LogLevel level, const char *file, int line, const char *format_str, Args&&... args) {
     try {
-        std::string message = fmt::format(fmt, std::forward<Args>(args)...);
+        std::string message = fmt::format(format_str, std::forward<Args>(args)...);
         LogFatal(level, file, line, message.c_str());
     } catch (const fmt::format_error& e) {
         Log(LogLevel::Error, file, line, 
             fmt::format("Format error in log message: {}", e.what()).c_str());
-        LogFatal(level, file, line, fmt);
+        LogFatal(level, file, line, format_str);
     }
 }
 
