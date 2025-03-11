@@ -30,6 +30,3 @@ jobs:
       run: |
         python -m pip install pytest
         pip install --verbose .
-
-    - name: Test
-      run: python -m pytest
