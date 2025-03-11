@@ -86,7 +86,7 @@ namespace gquery {
 template <typename... Args>
 void Log(LogLevel level, const char *file, int line, const char *format_str, Args&&... args) {
     try {
-        std::string message = fmt::format(format_str, std::forward<Args>(args)...);
+        std::string message = fmt::format(fmt::runtime(format_str), std::forward<Args>(args)...);
         Log(level, file, line, message.c_str());
     } catch (const fmt::format_error& e) {
         Log(LogLevel::Error, file, line, 
@@ -98,7 +98,7 @@ void Log(LogLevel level, const char *file, int line, const char *format_str, Arg
 template <typename... Args>
 [[noreturn]] void LogFatal(LogLevel level, const char *file, int line, const char *format_str, Args&&... args) {
     try {
-        std::string message = fmt::format(format_str, std::forward<Args>(args)...);
+        std::string message = fmt::format(fmt::runtime(format_str), std::forward<Args>(args)...);
         LogFatal(level, file, line, message.c_str());
     } catch (const fmt::format_error& e) {
         Log(LogLevel::Error, file, line, 
