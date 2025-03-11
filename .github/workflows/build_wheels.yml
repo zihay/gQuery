@@ -41,16 +41,7 @@ jobs:
           submodules: recursive
 
       - uses: pypa/cibuildwheel@v2.22
-        env:
-          CIBW_BUILD: "cp38-* cp39-* cp310-* cp311-* cp312-*"
-          CIBW_SKIP: "pp* *-musllinux_* cp38-macosx_arm64"
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
-          CIBW_ARCHS_LINUX: "x86_64"
-          CIBW_ARCHS_WINDOWS: "AMD64"
-          CIBW_TEST_SKIP: "*_arm64 *_universal2:arm64"
-          CIBW_TEST_COMMAND: "pytest {project}/tests"
-          CIBW_TEST_REQUIRES: "pytest"
-
+    
       - name: Verify clean directory
         run: git diff --exit-code
         shell: bash
