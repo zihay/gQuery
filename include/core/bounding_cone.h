@@ -26,4 +26,11 @@ struct BoundingCone {
     Float  radius;
 };
 
+template <size_t DIM>
+struct SoABoundingCone {
+    std::vector<Vector<DIM>> axis;
+    std::vector<Float>       half_angle;
+    std::vector<Float>       radius;
+};
+
 } // namespace gquery

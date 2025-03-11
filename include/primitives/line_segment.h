@@ -13,4 +13,9 @@ struct LineSegment {
     }
 };
 
+struct SoALineSegment {
+    std::vector<Vector2> a;
+    std::vector<Vector2> b;
+};
+
 } // namespace gquery

@@ -14,4 +14,11 @@ struct BoundingSphere {
     Vector center;
     Float  radius;
 };
+
+template <size_t DIM>
+struct SoABoundingSphere {
+    std::vector<Vector<DIM>> center;
+    std::vector<Float>       radius;
+};
+
 } // namespace gquery

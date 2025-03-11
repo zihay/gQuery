@@ -34,7 +34,7 @@ struct BVHPrimitive {
     BoundingBox bounding_box;    ///< Axis-aligned bounding box of the primitive
 };
 
-struct alignas(32) LinearBVHNode {
+struct alignas(32) BVHNode {
     BoundingBox<2> box;
     union {
         int primitivesOffset;  // leaf node
@@ -136,10 +136,49 @@ public:
 
     int flatten_bvh(BVHBuildNode *node, int *offset);
 
-    int                      m_max_prims_in_node; ///< Maximum primitives in a leaf node
-    std::vector<LineSegment> m_primitives;        ///< Original primitives
-    SplitMethod              m_split_method;      ///< Method used for node splitting
-    LinearBVHNode           *m_nodes;             ///< Flattened BVH nodes
+    int                        m_max_prims_in_node; ///< Maximum primitives in a leaf node
+    std::vector<LineSegment>   m_primitives;        ///< Original primitives
+    std::vector<LineSegment>   m_ordered_prims;     ///< Ordered primitives
+    SplitMethod                m_split_method;      ///< Method used for node splitting
+    std::vector<BVHNode> m_nodes;             ///< Flattened BVH nodes
+};
+
+template <size_t DIM>
+struct SoABVHNode {
+    SoABoundingBox<DIM> box;
+    std::vector<int>    reference_offset;
+    std::vector<int>    n_references;
+    std::vector<int>    second_child_offset;
+};
+
+template <size_t DIM>
+struct SoABVH {
+    SoABVH() = default;
+
+    SoABVH(const BVH &bvh) {
+        for (const auto &node : bvh.m_nodes) {
+            flat_tree.box.p_min.push_back(node.box.p_min);
+            flat_tree.box.p_max.push_back(node.box.p_max);
+
+            flat_tree.reference_offset.push_back(node.primitivesOffset);
+            flat_tree.n_references.push_back(node.n_primitives);
+            flat_tree.second_child_offset.push_back(node.secondChildOffset);
+        }
+
+        for (const auto &primitive : bvh.m_primitives) {
+            primitives.a.push_back(primitive.a);
+            primitives.b.push_back(primitive.b);
+        }
+
+        for (const auto &primitive : bvh.m_ordered_prims) {
+            sorted_primitives.a.push_back(primitive.a);
+            sorted_primitives.b.push_back(primitive.b);
+        }
+    }
+
+    SoABVHNode<DIM> flat_tree;
+    SoALineSegment  primitives;
+    SoALineSegment  sorted_primitives;
 };
 
 } // namespace gquery

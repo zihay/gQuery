@@ -39,7 +39,7 @@ struct alignas(32) SNCHNode {
 };
 
 class SNCH {
-
+    
 };
 
 } // namespace gquery

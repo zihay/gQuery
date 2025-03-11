@@ -62,4 +62,10 @@ struct BoundingBox {
     Vector p_max;
 };
 
+template <size_t DIM>
+struct SoABoundingBox {
+    std::vector<Vector<DIM>> p_min;
+    std::vector<Vector<DIM>> p_max;
+};
+
 } // namespace gquery
