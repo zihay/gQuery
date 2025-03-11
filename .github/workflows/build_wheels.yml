@@ -1,4 +1,4 @@
-name: Build and Release
+name: Wheels
 
 on:
   release:
@@ -6,6 +6,26 @@ on:
   workflow_dispatch:
 
 jobs:
+  build_sdist:
+    name: Build SDist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Build SDist
+        run: pipx run build --sdist
+
+      - name: Check metadata
+        run: pipx run twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -15,23 +35,12 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Install cibuildwheel
-        run: |
-          python -m pip install cibuildwheel==2.16.2
-
-      - name: Build wheels
-        run: |
-          python -m cibuildwheel --output-dir wheelhouse
+      - uses: pypa/cibuildwheel@v2.22
         env:
           CIBW_BUILD: "cp38-* cp39-* cp310-* cp311-* cp312-*"
           CIBW_SKIP: "pp* *-musllinux_* cp38-macosx_arm64"
@@ -42,59 +51,49 @@ jobs:
           CIBW_TEST_COMMAND: "pytest {project}/tests"
           CIBW_TEST_REQUIRES: "pytest"
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels-${{ matrix.os }}
-          path: ./wheelhouse/*.whl
+      - name: Verify clean directory
+        run: git diff --exit-code
+        shell: bash
 
-  build_sdist:
-    name: Build source distribution
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          path: wheelhouse/*.whl
+          name: dist-${{ matrix.os }}
+
+  upload_all:
+    name: Upload to PyPI if release
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          fetch-depth: 0
-          submodules: recursive
+          path: dist
+          pattern: dist-*
+          merge-multiple: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          python-version: '3.9'
+          user: __token__
+          password: ${{ secrets.pypi_password }}
 
-      - name: Install build dependencies
-        run: |
-          python -m pip install build
-
-      - name: Build SDist
-        run: |
-          python -m build --sdist
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: sdist
-          path: dist/*.tar.gz
-
+  # Keep GitHub Release upload functionality as an alternative
   upload_to_release:
     name: Upload to GitHub Release
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: dist
-
-      - name: Prepare distribution files
-        run: |
-          mkdir -p dist_upload
-          cp dist/wheels-*/*.whl dist_upload/
-          cp dist/sdist/*.tar.gz dist_upload/
-          ls -la dist_upload/
+          pattern: dist-*
+          merge-multiple: true
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist_upload/* 
+          files: dist/* 
