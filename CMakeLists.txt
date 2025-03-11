@@ -86,7 +86,7 @@ endif()
 include_directories(include)
 
 # Core library
-add_library(gquery STATIC
+add_library(gquery-core STATIC
   src/util/log.cpp
   src/util/check.cpp    
   src/util/print.cpp
@@ -94,7 +94,7 @@ add_library(gquery STATIC
   src/core/parallel.cpp
 )
 
-target_link_libraries(gquery PUBLIC 
+target_link_libraries(gquery-core PUBLIC 
   Eigen3::Eigen 
   spdlog::spdlog
 )
@@ -109,7 +109,7 @@ nanobind_add_module(
   src/gquery.cpp
 )
 
-target_link_libraries(gquery_ext PRIVATE gquery)
+target_link_libraries(gquery_ext PRIVATE gquery-core)
 
 # Platform-specific settings
 if(APPLE)
@@ -128,6 +128,16 @@ nanobind_add_stub(
   DEPENDS gquery_ext
 )
 
+# Copy the generated stub file to the source directory
+add_custom_command(
+  TARGET gquery_ext_stub
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy
+    ${CMAKE_CURRENT_BINARY_DIR}/gquery_ext.pyi
+    ${CMAKE_CURRENT_SOURCE_DIR}/gquery/gquery_ext.pyi
+  COMMENT "Copying gquery_ext.pyi stub to src directory"
+)
+
 # ============================================================================
 # Tests
 # ============================================================================
@@ -140,7 +150,7 @@ add_executable(gquery_test
 )
 
 target_link_libraries(gquery_test PRIVATE 
-  gquery 
+  gquery-core 
   gtest_main
   spdlog::spdlog
 )
@@ -149,10 +159,10 @@ target_link_libraries(gquery_test PRIVATE
 gtest_discover_tests(gquery_test)
 
 # Add a custom target for running tests with more detailed output
-add_custom_target(test_verbose
-  COMMAND ${CMAKE_CTEST_COMMAND} --verbose
-  DEPENDS gquery_test
-)
+# add_custom_target(test_verbose
+#   COMMAND ${CMAKE_CTEST_COMMAND} --verbose
+#   DEPENDS gquery_test
+# )
 
 # ============================================================================
 # Installation

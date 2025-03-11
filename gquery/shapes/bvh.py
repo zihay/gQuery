@@ -129,7 +129,9 @@ class BVH:
     flat_tree: BVHNode
     primitives: LineSegment
 
-    def __init__(self, vertices: Array2, indices: Array2i, types: Int):
+    def __init__(self, vertices: Array2, indices: Array2i):
+        import gquery as gq
+        
         import diff_wost as dw
 
         c_scene = dw.Polyline.from_dirichlet(vertices.numpy().T, indices.numpy().T,

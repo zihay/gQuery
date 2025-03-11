@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from core.fwd import *
-from scenes.primitive import BoundaryType
-from wost.math_utils import closest_point_line_segment
-from wost.scene import ClosestPointRecord, Intersection
+from shapes.primitive import ClosestPointRecord, Intersection
 
 
 @dataclass
@@ -10,8 +8,6 @@ class LineSegment:
     a: Array2
     b: Array2
     index: Int  # index in the original array
-    sorted_index: Int  # index in the sorted array
-    type: Int = Int(-1)
 
     @dr.syntax
     def normal(self):

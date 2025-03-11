@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from core.fwd import *
 from core.math import closest_point_triangle
-from wost.scene import BoundarySamplingRecord3D, ClosestPointRecord3D, Intersection3D
+from shapes.primitive import BoundarySamplingRecord3D, ClosestPointRecord3D, Intersection3D
 
 
 @dataclass
@@ -10,8 +10,6 @@ class Triangle:
     b: Array3
     c: Array3
     index: Int
-    sorted_index: Int
-    type: Int = Int(-1)
 
     @dr.syntax
     def centroid(self):
