@@ -20,7 +20,8 @@
         "any": "cpp",
         "unordered_set": "cpp",
         "__bit_reference": "cpp",
-        "limits": "cpp"
+        "limits": "cpp",
+        "bvh": "cpp"
     },
     "terminal.integrated.env.linux": {
         "PYTHONPATH": "${workspaceFolder}"

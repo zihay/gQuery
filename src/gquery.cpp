@@ -56,14 +56,14 @@ NB_MODULE(gquery_ext, m) {
         .def_rw("c", &gquery::Triangle::c)
         .def_rw("index", &gquery::Triangle::index);
 
-    // Bind BVHNode class
-    nb::class_<gquery::BVHNode>(m, "BVHNode")
+    // Bind BVHNode class (2D version)
+    nb::class_<gquery::BVHNode<2>>(m, "BVHNode")
         .def(nb::init<>())
-        .def_ro("box", &gquery::BVHNode::box)
-        .def_ro("n_primitives", &gquery::BVHNode::n_primitives)
-        .def_ro("primitives_offset", &gquery::BVHNode::primitivesOffset)
-        .def_ro("second_child_offset", &gquery::BVHNode::secondChildOffset)
-        .def_ro("axis", &gquery::BVHNode::axis);
+        .def_ro("box", &gquery::BVHNode<2>::box)
+        .def_ro("n_primitives", &gquery::BVHNode<2>::n_primitives)
+        .def_ro("primitives_offset", &gquery::BVHNode<2>::primitivesOffset)
+        .def_ro("second_child_offset", &gquery::BVHNode<2>::secondChildOffset)
+        .def_ro("axis", &gquery::BVHNode<2>::axis);
 
     // Bind SoABoundingBox class
     nb::class_<gquery::SoABoundingBox<2>>(m, "SoABoundingBox")
@@ -94,26 +94,26 @@ NB_MODULE(gquery_ext, m) {
     // Bind SoABVH class
     nb::class_<gquery::SoABVH<2>>(m, "SoABVH")
         .def(nb::init<>())
-        .def(nb::init<const gquery::BVH &>())
+        .def(nb::init<const gquery::BVH<2> &>())
         .def_rw("flat_tree", &gquery::SoABVH<2>::flat_tree)
         .def_rw("primitives", &gquery::SoABVH<2>::primitives)
         .def_rw("sorted_primitives", &gquery::SoABVH<2>::sorted_primitives);
 
     // Enum for BVH split method
-    nb::enum_<gquery::BVH::SplitMethod>(m, "BVHSplitMethod")
-        .value("SAH", gquery::BVH::SplitMethod::SAH)
+    nb::enum_<gquery::BVH<2>::SplitMethod>(m, "BVHSplitMethod")
+        .value("SAH", gquery::BVH<2>::SplitMethod::SAH)
         .export_values();
 
-    // Bind BVH class
-    nb::class_<gquery::BVH>(m, "BVH")
-        .def(nb::init<const std::vector<gquery::LineSegment> &, int, gquery::BVH::SplitMethod>(),
-             "primitives"_a, "max_prims_in_node"_a = 10, "split_method"_a = gquery::BVH::SplitMethod::SAH)
-        .def(nb::init<const std::vector<Vector2> &, const std::vector<Vector2i> &, int, gquery::BVH::SplitMethod>(),
-             "vertices"_a, "indices"_a, "max_prims_in_node"_a = 10, "split_method"_a = gquery::BVH::SplitMethod::SAH)
-        .def_ro("nodes", &gquery::BVH::m_nodes)
-        .def_ro("primitives", &gquery::BVH::m_primitives)
-        .def_ro("ordered_primitives", &gquery::BVH::m_ordered_prims)
-        .def("to_soa", [](const gquery::BVH &bvh) {
+    // Bind BVH class (2D version)
+    nb::class_<gquery::BVH<2>>(m, "BVH")
+        .def(nb::init<const std::vector<gquery::LineSegment> &, int, gquery::BVH<2>::SplitMethod>(),
+             "primitives"_a, "max_prims_in_node"_a = 10, "split_method"_a = gquery::BVH<2>::SplitMethod::SAH)
+        .def(nb::init<const std::vector<Vector2> &, const std::vector<Vector2i> &, int, gquery::BVH<2>::SplitMethod>(),
+             "vertices"_a, "indices"_a, "max_prims_in_node"_a = 10, "split_method"_a = gquery::BVH<2>::SplitMethod::SAH)
+        .def_ro("nodes", &gquery::BVH<2>::m_nodes)
+        .def_ro("primitives", &gquery::BVH<2>::m_primitives)
+        .def_ro("ordered_primitives", &gquery::BVH<2>::m_ordered_prims)
+        .def("to_soa", [](const gquery::BVH<2> &bvh) {
             return gquery::SoABVH<2>(bvh);
         });
 }

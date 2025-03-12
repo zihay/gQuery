@@ -31,6 +31,8 @@ auto const RAY_OFFSET = 1e-4f;
 // #define AD
 template <size_t DIM>
 using Vector = Eigen::Matrix<Float, DIM, 1>;
+template <size_t DIM>
+using Vectori = Eigen::Matrix<int, DIM, 1>;
 
 typedef Eigen::Matrix<Float, 2, 1>  Vector2;
 typedef Eigen::Matrix<float, 2, 1>  Vector2f;

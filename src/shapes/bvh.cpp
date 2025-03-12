@@ -6,9 +6,10 @@ namespace gquery {
 
 using Allocator = std::pmr::polymorphic_allocator<std::byte>;
 
+template <size_t DIM>
 struct BVHSplitBucket {
-    BoundingBox<2> box;
-    int            count;
+    BoundingBox<DIM> box;
+    int              count = 0; // Initialize to 0
 };
 
 struct SplitResult {
@@ -20,9 +21,10 @@ struct SplitResult {
 template <size_t DIM>
 class SAHSplitMethod {
 public:
-    using BoundingBox = BoundingBox<DIM>;
+    using BoundingBox      = BoundingBox<DIM>;
+    using BVHPrimitiveType = BVHPrimitive<DIM>;
 
-    SplitResult find_best_split(const std::span<BVHPrimitive> bvh_primitives) {
+    SplitResult find_best_split(const std::span<BVHPrimitiveType> bvh_primitives) {
         BoundingBox box;
         for (const auto &prim : bvh_primitives) {
             box.expand(prim.bounding_box);
@@ -35,7 +37,7 @@ public:
         int dim = centroids_box.max_dimension(); // split axis
 
         // Initialize buckets for SAH partition
-        BVHSplitBucket buckets[m_n_buckets] = {};
+        BVHSplitBucket<DIM> buckets[m_n_buckets] = {};
         for (const auto &prim : bvh_primitives) {
             int b = m_n_buckets * centroids_box.offset(prim.bounding_box.centroid())[dim];
             if (b == m_n_buckets)
@@ -87,30 +89,52 @@ public:
     constexpr static int m_n_buckets = 12;
 };
 
-BVH::BVH(const std::vector<Vector2> &vertices, const std::vector<Vector2i> &indices,
-         int max_prims_in_node, SplitMethod split_method)
+// Implementation of BVH constructor from vertices and indices
+template <size_t DIM>
+BVH<DIM>::BVH(const std::vector<Vector<DIM>>  &vertices,
+              const std::vector<Vectori<DIM>> &indices,
+              int max_prims_in_node, SplitMethod split_method)
     : m_max_prims_in_node(max_prims_in_node), m_split_method(split_method) {
     m_primitives.reserve(indices.size());
-    for (int i = 0; i < indices.size(); ++i) {
-        auto index = indices[i];
-        auto v0    = vertices[index[0]];
-        auto v1    = vertices[index[1]];
-        m_primitives.push_back(LineSegment{ v0, v1, i });
+
+    if constexpr (DIM == 2) {
+        // 2D case - LineSegment construction
+        for (int i = 0; i < indices.size(); ++i) {
+            auto index = indices[i];
+            auto v0    = vertices[index[0]];
+            auto v1    = vertices[index[1]];
+            m_primitives.push_back(LineSegment{ v0, v1 });
+            m_primitives.back().index = i;
+        }
+    } else if constexpr (DIM == 3) {
+        // 3D case - Triangle construction
+        for (int i = 0; i < indices.size(); ++i) {
+            auto index = indices[i];
+            auto v0    = vertices[index[0]];
+            auto v1    = vertices[index[1]];
+            auto v2    = vertices[index[2]];
+            m_primitives.push_back(Triangle{ v0, v1, v2 });
+            m_primitives.back().index = i;
+        }
     }
 
     build();
 }
 
-BVH::BVH(const std::vector<LineSegment> &primitives, int max_prims_in_node, SplitMethod split_method)
-    : m_primitives(std::move(primitives)), m_max_prims_in_node(max_prims_in_node), m_split_method(split_method) {
+// Implementation of BVH constructor from primitives
+template <size_t DIM>
+BVH<DIM>::BVH(const std::vector<PrimitiveT> &primitives, int max_prims_in_node, SplitMethod split_method)
+    : m_primitives(primitives), m_max_prims_in_node(max_prims_in_node), m_split_method(split_method) {
     build();
 }
 
-void BVH::build() {
-    CHECK(!m_primitives.empty());
-    std::vector<BVHPrimitive> bvh_primitives(m_primitives.size());
+// Implementation of BVH::build
+template <size_t DIM>
+void BVH<DIM>::build() {
+    DCHECK(!m_primitives.empty());
+    std::vector<BVHPrimitiveType> bvh_primitives(m_primitives.size());
     for (size_t i = 0; i < m_primitives.size(); ++i) {
-        bvh_primitives[i] = BVHPrimitive{ i, m_primitives[i].bounding_box() };
+        bvh_primitives[i] = BVHPrimitiveType{ i, m_primitives[i].bounding_box() };
     }
 
     std::pmr::monotonic_buffer_resource resource;
@@ -122,13 +146,13 @@ void BVH::build() {
         return Allocator(thread_buffer_resources.back().get());
     });
 
-    std::vector<LineSegment> ordered_prims(m_primitives.size());
+    std::vector<PrimitiveT> ordered_prims(m_primitives.size());
 
-    BVHBuildNode    *root;
-    std::atomic<int> total_nodes{ 0 };
+    BVHBuildNodeType *root;
+    std::atomic<int>  total_nodes{ 0 };
 
     std::atomic<int> ordered_prims_offset{ 0 };
-    root = build_recursive(thread_allocators, std::span<BVHPrimitive>(bvh_primitives),
+    root = build_recursive(thread_allocators, std::span<BVHPrimitiveType>(bvh_primitives),
                            total_nodes, ordered_prims_offset, ordered_prims);
     CHECK_EQ(ordered_prims_offset.load(), ordered_prims.size());
     m_ordered_prims = std::move(ordered_prims);
@@ -142,24 +166,27 @@ void BVH::build() {
     CHECK_EQ(total_nodes.load(), offset);
 }
 
-BVHBuildNode *BVH::build_recursive(ThreadLocal<Allocator>   &thread_allocators,
-                                   std::span<BVHPrimitive>   bvh_primitives,
-                                   std::atomic<int>         &total_nodes,
-                                   std::atomic<int>         &ordered_prims_offset,
-                                   std::vector<LineSegment> &ordered_prims) {
-    DCHECK_NE(bvh_primitives.size(), 0);
-    Allocator     alloc = thread_allocators.Get();
-    BVHBuildNode *node  = alloc.new_object<BVHBuildNode>();
+// Implementation of BVH::build_recursive
+template <size_t DIM>
+typename BVH<DIM>::BVHBuildNodeType *BVH<DIM>::build_recursive(
+    ThreadLocal<Allocator>     &thread_allocators,
+    std::span<BVHPrimitiveType> bvh_primitives,
+    std::atomic<int>           &total_nodes,
+    std::atomic<int>           &ordered_prims_offset,
+    std::vector<PrimitiveT>    &ordered_prims) {
+    DCHECK_GT(bvh_primitives.size(), 0);
+    Allocator         alloc = thread_allocators.Get();
+    BVHBuildNodeType *node  = alloc.new_object<BVHBuildNodeType>();
     ++total_nodes;
 
     // Compute bounds of all primitives in BVH node
-    BoundingBox<2> box;
+    BoundingBoxType box;
     for (const auto &prim : bvh_primitives) {
         box.expand(prim.bounding_box);
     }
 
     // Check for early termination cases
-    if (box.surface_area() == 0 or bvh_primitives.size() == 1) {
+    if (box.surface_area() == 0 || bvh_primitives.size() == 1) {
         // early termination if the box is degenerate or there is only one primitive
         int first_prim_offset = ordered_prims_offset.fetch_add(bvh_primitives.size());
         for (size_t i = 0; i < bvh_primitives.size(); ++i) {
@@ -171,7 +198,7 @@ BVHBuildNode *BVH::build_recursive(ThreadLocal<Allocator>   &thread_allocators,
     }
 
     // Compute bound of primitive centroids and choose split dimension
-    BoundingBox<2> centroid_box;
+    BoundingBoxType centroid_box;
     for (const auto &prim : bvh_primitives) {
         centroid_box.expand(prim.bounding_box.centroid());
     }
@@ -196,11 +223,11 @@ BVHBuildNode *BVH::build_recursive(ThreadLocal<Allocator>   &thread_allocators,
                 mid = bvh_primitives.size() / 2;
                 std::nth_element(bvh_primitives.begin(), bvh_primitives.begin() + mid,
                                  bvh_primitives.end(),
-                                 [dim](const BVHPrimitive &a, const BVHPrimitive &b) {
+                                 [dim](const BVHPrimitiveType &a, const BVHPrimitiveType &b) {
                                      return a.bounding_box.centroid()[dim] < b.bounding_box.centroid()[dim];
                                  });
             } else {
-                auto split_method = SAHSplitMethod<2>();
+                auto split_method = SAHSplitMethod<DIM>();
                 auto split_result = split_method.find_best_split(bvh_primitives);
 
                 int   n_buckets      = split_method.m_n_buckets;
@@ -213,10 +240,10 @@ BVHBuildNode *BVH::build_recursive(ThreadLocal<Allocator>   &thread_allocators,
                 min_cost = 1.f / 2.f + min_cost / box.surface_area();
 
                 // perform SAH split if the cost is lower than the leaf cost
-                if (bvh_primitives.size() > m_max_prims_in_node or min_cost < leaf_cost) {
+                if (bvh_primitives.size() > m_max_prims_in_node || min_cost < leaf_cost) {
                     auto mid_iter = std::partition(
                         bvh_primitives.begin(), bvh_primitives.end(),
-                        [=](const BVHPrimitive &prim) {
+                        [=](const BVHPrimitiveType &prim) {
                             int b = n_buckets * centroid_box.offset(prim.bounding_box.centroid())[dim];
                             if (b == n_buckets)
                                 b = n_buckets - 1;
@@ -238,8 +265,8 @@ BVHBuildNode *BVH::build_recursive(ThreadLocal<Allocator>   &thread_allocators,
         }
     }
 
-    BVHBuildNode *left  = nullptr;
-    BVHBuildNode *right = nullptr;
+    BVHBuildNodeType *left  = nullptr;
+    BVHBuildNodeType *right = nullptr;
     if (bvh_primitives.size() > 128 * 1024) {
         ParallelFor(0, 2, [&](int i) {
             if (i == 0) {
@@ -253,40 +280,75 @@ BVHBuildNode *BVH::build_recursive(ThreadLocal<Allocator>   &thread_allocators,
             }
         });
     } else {
-        left  = build_recursive(thread_allocators, bvh_primitives.subspan(0, mid),
-                                total_nodes, ordered_prims_offset, ordered_prims);
-        right = build_recursive(thread_allocators, bvh_primitives.subspan(mid),
-                                total_nodes, ordered_prims_offset, ordered_prims);
+        left = build_recursive(
+            thread_allocators, bvh_primitives.subspan(0, mid),
+            total_nodes, ordered_prims_offset, ordered_prims);
+        right = build_recursive(
+            thread_allocators, bvh_primitives.subspan(mid),
+            total_nodes, ordered_prims_offset, ordered_prims);
     }
 
     node->init_interior(dim, left, right);
     return node;
 }
 
-int BVH::flatten_bvh(BVHBuildNode *node, int *offset) {
-    // use DFS to flatten the BVH
-    BVHNode *linear_node = &m_nodes[*offset];
-    linear_node->box     = node->box;
-    int node_offset      = (*offset)++;
-    if (node->n_primitives > 0) { // leaf node
-        CHECK(!node->left and !node->right);
-        CHECK_LT(node->n_primitives, (1 << 16) - 1);
+// Implementation of BVH::flatten_bvh
+template <size_t DIM>
+int BVH<DIM>::flatten_bvh(BVHBuildNodeType *node, int *offset) {
+    BVHNodeType *linear_node = &m_nodes[*offset];
+    linear_node->box         = node->box;
+    int my_offset            = (*offset)++;
+
+    if (node->n_primitives > 0) {
+        DCHECK(!node->left && !node->right);
         linear_node->primitivesOffset = node->first_prim_offset;
         linear_node->n_primitives     = node->n_primitives;
-    } else { // interior node
+    } else {
+        // Create interior flattened BVH node
         linear_node->axis         = node->split_axis;
         linear_node->n_primitives = 0;
-        // Process left child first, then right child
         flatten_bvh(node->left, offset);
-        // Set second child offset to flattened index of right child
         linear_node->secondChildOffset = flatten_bvh(node->right, offset);
     }
-    return node_offset;
+    return my_offset;
 }
 
-SoABVH<2> BVH::to_soa_bvh() const {
-    SoABVH<2> soa_bvh(*this);
-    return soa_bvh;
+// Implementation of BVH::to_soa_bvh
+template <size_t DIM>
+SoABVH<DIM> BVH<DIM>::to_soa_bvh() const {
+    return SoABVH<DIM>(*this);
 }
+
+// Implement constructor for BVH<2> with LineSegment primitives
+template <>
+BVH<2>::BVH(const std::vector<LineSegment> &primitives,
+            int max_prims_in_node, BVH<2>::SplitMethod split_method)
+    : m_primitives(primitives), m_max_prims_in_node(max_prims_in_node),
+      m_split_method(split_method) {
+    build();
+}
+
+// Implement constructor for BVH<2> with vertices and indices
+template <>
+BVH<2>::BVH(const std::vector<Vector2>  &vertices,
+            const std::vector<Vector2i> &indices,
+            int max_prims_in_node, SplitMethod split_method)
+    : m_max_prims_in_node(max_prims_in_node), m_split_method(split_method) {
+    // Convert vertices and indices to LineSegment primitives
+    m_primitives.reserve(indices.size());
+    for (size_t i = 0; i < indices.size(); ++i) {
+        LineSegment segment;
+        segment.a     = vertices[indices[i][0]];
+        segment.b     = vertices[indices[i][1]];
+        segment.index = i;
+        m_primitives.push_back(segment);
+    }
+
+    build();
+}
+
+// Explicit instantiations for SAHSplitMethod only
+template class SAHSplitMethod<2>;
+template class SAHSplitMethod<3>;
 
 } // namespace gquery
