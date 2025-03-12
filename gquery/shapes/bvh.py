@@ -1,7 +1,8 @@
-from core.fwd import *
+import numpy as np
+from gquery.core.fwd import *
 from dataclasses import dataclass
-from shapes.line_segment import LineSegment
-from shapes.primitive import BoundarySamplingRecord, ClosestPointRecord, Intersection
+from gquery.shapes.line_segment import LineSegment
+from gquery.shapes.primitive import BoundarySamplingRecord, ClosestPointRecord, Intersection
 
 
 @dr.syntax
@@ -130,31 +131,23 @@ class BVH:
     primitives: LineSegment
 
     def __init__(self, vertices: Array2, indices: Array2i):
-        import gquery as gq
-        
-        import diff_wost as dw
-
-        c_scene = dw.Polyline.from_dirichlet(vertices.numpy().T, indices.numpy().T,
-                                             build_bvh=True)
-        bvh = c_scene.dirichlet_scene_loader.scene.getSceneData().aggregate
-        primitives = dw.convert_line_segments(bvh.primitives)
-        flat_tree: dw.BVHNodeSoA = dw.convert_bvh_nodes(bvh.flatTree)
-
+        import gquery.gquery_ext as gq
+        bvh = gq.BVH(vertices.numpy().T, indices.numpy().T)
+        bvh_soa = bvh.to_soa()
+        flat_tree: gq.SoABVHNode = bvh_soa.flat_tree
+        primitives: gq.SoALineSegment = bvh_soa.primitives
         self.primitives = LineSegment(
             a=Array2(np.array(primitives.a).T),
             b=Array2(np.array(primitives.b).T),
             # index in the original array
-            index=Int(np.array(primitives.index)),
-            # index in the sorted array
-            sorted_index=dr.arange(Int, len(primitives.index)),
-            type=dr.gather(Int, types, np.array(primitives.index)))
+            index=Int(np.array(primitives.index)))
 
         self.flat_tree = BVHNode(
-            box=BoundingBox(p_min=Array2(np.array(flat_tree.pMin).T),
-                            p_max=Array2(np.array(flat_tree.pMax).T)),
-            reference_offset=Int(np.array(flat_tree.referenceOffset)),
-            second_child_offset=Int(np.array(flat_tree.secondChildOffset)),
-            n_references=Int(np.array(flat_tree.nReferences)))
+            box=BoundingBox(p_min=Array2(np.array(flat_tree.box.p_min).T),
+                            p_max=Array2(np.array(flat_tree.box.p_max).T)),
+            reference_offset=Int(np.array(flat_tree.reference_offset)),
+            second_child_offset=Int(np.array(flat_tree.second_child_offset)),
+            n_references=Int(np.array(flat_tree.n_references)))
 
     @dr.syntax
     def closest_point(self, p: Array2):

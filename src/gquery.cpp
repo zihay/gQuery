@@ -3,6 +3,7 @@
 #include <shapes/bounding_box.h>
 #include <shapes/bvh.h>
 #include <shapes/line_segment.h>
+#include <shapes/triangle.h>
 
 using namespace nanobind::literals;
 namespace nb = nanobind;
@@ -44,7 +45,16 @@ NB_MODULE(gquery_ext, m) {
     nb::class_<gquery::LineSegment>(m, "LineSegment")
         .def(nb::init<>())
         .def_rw("a", &gquery::LineSegment::a)
-        .def_rw("b", &gquery::LineSegment::b);
+        .def_rw("b", &gquery::LineSegment::b)
+        .def_rw("index", &gquery::LineSegment::index);
+
+    // Bind Triangle class
+    nb::class_<gquery::Triangle>(m, "Triangle")
+        .def(nb::init<>())
+        .def_rw("a", &gquery::Triangle::a)
+        .def_rw("b", &gquery::Triangle::b)
+        .def_rw("c", &gquery::Triangle::c)
+        .def_rw("index", &gquery::Triangle::index);
 
     // Bind BVHNode class
     nb::class_<gquery::BVHNode>(m, "BVHNode")
@@ -78,7 +88,8 @@ NB_MODULE(gquery_ext, m) {
     nb::class_<gquery::SoALineSegment>(m, "SoALineSegment")
         .def(nb::init<>())
         .def_rw("a", &gquery::SoALineSegment::a)
-        .def_rw("b", &gquery::SoALineSegment::b);
+        .def_rw("b", &gquery::SoALineSegment::b)
+        .def_rw("index", &gquery::SoALineSegment::index);
 
     // Bind SoABVH class
     nb::class_<gquery::SoABVH<2>>(m, "SoABVH")

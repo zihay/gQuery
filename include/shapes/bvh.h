@@ -184,6 +184,7 @@ struct SoABVH {
         for (const auto &primitive : bvh.m_primitives) {
             primitives.a.push_back(primitive.a);
             primitives.b.push_back(primitive.b);
+            primitives.index.push_back(primitive.index);
         }
 
         for (const auto &primitive : bvh.m_ordered_prims) {

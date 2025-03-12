@@ -133,6 +133,12 @@ class LineSegment:
     @b.setter
     def b(self, arg: Annotated[ArrayLike, dict(dtype='float32', shape=(2), order='C')], /) -> None: ...
 
+    @property
+    def index(self) -> int: ...
+
+    @index.setter
+    def index(self, arg: int, /) -> None: ...
+
 SAH: BVHSplitMethod = BVHSplitMethod.SAH
 
 class SoABVH:
@@ -231,3 +237,36 @@ class SoALineSegment:
 
     @b.setter
     def b(self, arg: Sequence[Annotated[ArrayLike, dict(dtype='float32', shape=(2), order='C')]], /) -> None: ...
+
+    @property
+    def index(self) -> list[int]: ...
+
+    @index.setter
+    def index(self, arg: Sequence[int], /) -> None: ...
+
+class Triangle:
+    def __init__(self) -> None: ...
+
+    @property
+    def a(self) -> Annotated[ArrayLike, dict(dtype='float32', shape=(3), order='C')]: ...
+
+    @a.setter
+    def a(self, arg: Annotated[ArrayLike, dict(dtype='float32', shape=(3), order='C')], /) -> None: ...
+
+    @property
+    def b(self) -> Annotated[ArrayLike, dict(dtype='float32', shape=(3), order='C')]: ...
+
+    @b.setter
+    def b(self, arg: Annotated[ArrayLike, dict(dtype='float32', shape=(3), order='C')], /) -> None: ...
+
+    @property
+    def c(self) -> Annotated[ArrayLike, dict(dtype='float32', shape=(3), order='C')]: ...
+
+    @c.setter
+    def c(self, arg: Annotated[ArrayLike, dict(dtype='float32', shape=(3), order='C')], /) -> None: ...
+
+    @property
+    def index(self) -> int: ...
+
+    @index.setter
+    def index(self, arg: int, /) -> None: ...

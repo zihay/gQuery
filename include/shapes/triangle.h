@@ -1,6 +1,6 @@
 #pragma once
-#include <core/bounding_box.h>
-#include <fwd.h>
+#include <core/fwd.h>
+#include <shapes/bounding_box.h>
 
 namespace gquery {
 
@@ -8,6 +8,7 @@ struct Triangle {
     Vector3 a;
     Vector3 b;
     Vector3 c;
+    int     index;
 
     BoundingBox<3> bounding_box() const {
         BoundingBox<3> box;

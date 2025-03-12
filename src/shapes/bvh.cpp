@@ -95,7 +95,7 @@ BVH::BVH(const std::vector<Vector2> &vertices, const std::vector<Vector2i> &indi
         auto index = indices[i];
         auto v0    = vertices[index[0]];
         auto v1    = vertices[index[1]];
-        m_primitives.push_back(LineSegment{ v0, v1 });
+        m_primitives.push_back(LineSegment{ v0, v1, i });
     }
 
     build();

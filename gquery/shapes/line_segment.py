@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from core.fwd import *
-from shapes.primitive import ClosestPointRecord, Intersection
+from gquery.core.fwd import *
+from gquery.shapes.primitive import ClosestPointRecord, Intersection
 
 
 @dataclass

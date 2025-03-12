@@ -1,4 +1,4 @@
-from core.fwd import *
+from gquery.core.fwd import *
 
 
 @dataclass
