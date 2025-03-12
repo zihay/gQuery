@@ -1,5 +1,5 @@
 #pragma once
-#include <core/bounding_box.h>
+#include <shapes/bounding_box.h>
 #include <core/fwd.h>
 namespace gquery {
 
@@ -9,7 +9,10 @@ struct LineSegment {
     Vector b;
 
     BoundingBox<2> bounding_box() const {
-        return BoundingBox<2>(a, b);
+        BoundingBox<2> box;
+        box.expand(a);
+        box.expand(b);
+        return box;
     }
 };
 

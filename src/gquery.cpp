@@ -1,8 +1,8 @@
-#include <core/bounding_box.h>
-#include <core/bvh.h>
 #include <core/fwd.h>
-#include <primitives/line_segment.h>
 #include <python/python.h>
+#include <shapes/bounding_box.h>
+#include <shapes/bvh.h>
+#include <shapes/line_segment.h>
 
 using namespace nanobind::literals;
 namespace nb = nanobind;

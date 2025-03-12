@@ -11,6 +11,11 @@ struct BoundingBox {
     using Vector = Eigen::Matrix<Float, DIM, 1>;
 
     BoundingBox() : p_min(Vector::Constant(FLT_MAX)), p_max(Vector::Constant(-FLT_MAX)) {}
+    BoundingBox(const Vector &p) {
+        Vector eps = Vector::Constant(Epsilon);
+        p_min      = p - eps;
+        p_max      = p + eps;
+    }
     BoundingBox(const Vector &p_min, const Vector &p_max) : p_min(p_min), p_max(p_max) {}
 
     Float width() const { return p_max[0] - p_min[0]; }

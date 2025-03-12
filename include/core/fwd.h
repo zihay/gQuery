@@ -7,7 +7,7 @@
 
 #ifdef DOUBLE_PRECISION
 typedef float Float; // TODO
-#define Epsilon       1e-9
+#define Epsilon       std::numeric_limits<Float>::epsilon()
 #define FilterEpsilon 1e-12
 #undef M_PI
 #define M_PI       3.14159265358979323846

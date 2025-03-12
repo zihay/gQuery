@@ -19,7 +19,8 @@
         "vector": "cpp",
         "any": "cpp",
         "unordered_set": "cpp",
-        "__bit_reference": "cpp"
+        "__bit_reference": "cpp",
+        "limits": "cpp"
     },
     "terminal.integrated.env.linux": {
         "PYTHONPATH": "${workspaceFolder}"

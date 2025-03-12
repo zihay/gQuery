@@ -13,7 +13,7 @@ def load_obj_2d(file_path):
         edges: numpy array of shape (M, 2) containing edge indices
     """
     vertices = []
-    faces = []
+    edges = []
 
     with open(file_path, 'r') as f:
         for line in f:
@@ -31,7 +31,17 @@ def load_obj_2d(file_path):
 
                 # Create edges for the face boundary
                 for i in range(len(indices)):
-                    faces.append((indices[i], indices[(i+1) % len(indices)]))
+                    edges.append((indices[i], indices[(i+1) % len(indices)]))
+            elif line.startswith('l '):
+                # Parse line segment
+                parts = line.split()
+                # OBJ indices start from 1, so subtract 1
+                if len(parts) >= 3:  # Need at least 2 vertices for a line
+                    indices = [int(p) - 1 for p in parts[1:]]
+                    
+                    # Create edges for the line segments
+                    for i in range(len(indices) - 1):
+                        edges.append((indices[i], indices[i+1]))
 
     # Convert to numpy arrays
     vertices = np.array(vertices)
@@ -45,12 +55,12 @@ def load_obj_2d(file_path):
         vertices /= scale
 
     # Remove duplicate edges
-    if len(faces) > 0:
-        faces = np.array(faces)
-        faces = np.sort(faces, axis=1)  # Sort edge vertices
-        faces = np.unique(faces, axis=0)  # Remove duplicates
+    if len(edges) > 0:
+        edges = np.array(edges)
+        edges = np.sort(edges, axis=1)  # Sort edge vertices
+        edges = np.unique(edges, axis=0)  # Remove duplicates
 
-    return vertices, faces
+    return vertices, edges
 
 
 def load_obj_3d(file_path, normalize=True):

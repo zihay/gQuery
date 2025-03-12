@@ -87,11 +87,11 @@ include_directories(include)
 
 # Core library
 add_library(gquery-core STATIC
+  src/core/parallel.cpp
+  src/shapes/bvh.cpp
   src/util/log.cpp
   src/util/check.cpp    
   src/util/print.cpp
-  src/core/bvh.cpp
-  src/core/parallel.cpp
 )
 
 target_link_libraries(gquery-core PUBLIC 
@@ -136,6 +136,26 @@ add_custom_command(
     ${CMAKE_CURRENT_BINARY_DIR}/gquery_ext.pyi
     ${CMAKE_CURRENT_SOURCE_DIR}/gquery/gquery_ext.pyi
   COMMENT "Copying gquery_ext.pyi stub to src directory"
+)
+
+# Copy the py.typed marker file to the source directory
+add_custom_command(
+  TARGET gquery_ext_stub
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy
+    ${CMAKE_CURRENT_BINARY_DIR}/py.typed
+    ${CMAKE_CURRENT_SOURCE_DIR}/gquery/py.typed
+  COMMENT "Copying py.typed marker to src directory"
+)
+
+# Copy the compiled extension module to the source directory
+add_custom_command(
+  TARGET gquery_ext
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:gquery_ext>
+    ${CMAKE_CURRENT_SOURCE_DIR}/gquery/
+  COMMENT "Copying compiled extension module to src directory"
 )
 
 # ============================================================================
