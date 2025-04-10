@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from gquery.core.fwd import *
+from gquery.core.math import closest_point_line_segment
 from gquery.shapes.primitive import ClosestPointRecord, Intersection
 
 
@@ -56,8 +57,7 @@ class LineSegment:
                         t=s,
                         d=dr.abs(t),
                         prim_id=self.index,
-                        on_boundary=Bool(True),
-                        type=self.type)
+                        on_boundary=Bool(True))
         return its
 
     @dr.syntax
@@ -74,127 +74,19 @@ class LineSegment:
             n=n,
             t=h,
             d=d,
-            prim_id=self.index,
-            type=self.type)
+            prim_id=self.index)
 
-    @dr.syntax
-    def bounding_point(self, x: Array2, e: Array2,
-                       rho_max: Float = Float(1.), r_max: Float = Float(dr.inf)):
-        c_rec = dr.zeros(ClosestPointRecord)
-        R = Float(r_max)
-        T = self.type
-        a = self.a
-        b = self.b
-        tangent = dr.normalize(b - a)
-        normal = Array2(tangent.y, -tangent.x)
-        dir = dr.normalize(a - x)
-        if dr.dot(dir, normal) > 0.:
-            en = dr.dot(e, normal)
-            et = dr.dot(e, tangent)
-            d = dr.dot(a - x, normal)
-            t1 = Float(-dr.inf)
-            t2 = Float(dr.inf)
-            pt = x + d * normal
-            if T == BoundaryType.Dirichlet.value:
-                if dr.abs(et) > 1e-4:
-                    t1 = -d / et * (rho_max + en)
-                    t2 = d / et * (rho_max - en)
-            elif T == BoundaryType.Neumann.value:
-                if dr.abs(en) > 1e-4:
-                    t1 = d / en * (rho_max + et)
-                    t2 = -d / en * (rho_max - et)
-            ta = dr.dot(a - x, tangent)
-            tb = dr.dot(b - x, tangent)
-            tmin = dr.minimum(ta, tb)
-            tmax = dr.maximum(ta, tb)
-            if (t1 > tmin) & (t1 < tmax):
-                dist = dr.norm(pt + t1 * tangent - x)
-                if dist < R:
-                    c_rec.valid = Bool(True)
-                    c_rec.p = pt + t1 * tangent
-                    c_rec.t = t1
-                    c_rec.d = dist
-                    R = dist
-            if (t2 > tmin) & (t2 < tmax):
-                dist = dr.norm(pt + t2 * tangent - x)
-                if dist < R:
-                    c_rec.valid = Bool(True)
-                    c_rec.p = pt + t2 * tangent
-                    c_rec.t = t2
-                    c_rec.d = dist
-                    R = dist
-            if ((t1 > tmax) & (t2 > tmax)) | ((t1 < tmin) & (t2 < tmin)):
-                dist = dr.norm(a - x)
-                if dist < R:
-                    c_rec.valid = Bool(True)
-                    c_rec.p = a
-                    c_rec.t = Float(0.)
-                    c_rec.d = dist
-                    R = dist
-                dist = dr.norm(b - x)
-                if dist < R:
-                    c_rec.valid = Bool(True)
-                    c_rec.p = b
-                    c_rec.t = Float(1.)
-                    c_rec.d = dist
-                    R = dist
-        else:
-            dist = dr.norm(a - x)
-            if dist < R:
-                c_rec.valid = Bool(True)
-                c_rec.p = a
-                c_rec.t = Float(0.)
-                c_rec.d = dist
-                R = dist
-            dist = dr.norm(b - x)
-            if dist < R:
-                c_rec.valid = Bool(True)
-                c_rec.p = b
-                c_rec.t = Float(1.)
-                c_rec.d = dist
-                R = dist
-        c_rec.prim_id = self.sorted_index
-        c_rec.type = self.type
-        return c_rec
 
-    @dr.syntax
-    def star_radius_2(self, x: Array2, e: Array2, rho_max: Float = Float(1.), r_max: Float = Float(dr.inf)):
-        R = Float(r_max)
-        T = self.type
-        a = self.a
-        b = self.b
-        tangent = dr.normalize(b - a)
-        normal = Array2(tangent.y, -tangent.x)
-        dir = dr.normalize(a - x)
-        if dr.dot(dir, normal) > 0.:
-            en = dr.dot(e, normal)
-            et = dr.dot(e, tangent)
-            d = dr.dot(a - x, normal)
-            t1 = Float(-dr.inf)
-            t2 = Float(dr.inf)
-            pt = x + d * normal
-            if T == BoundaryType.Dirichlet.value:
-                if dr.abs(et) > 1e-4:
-                    t1 = -d / et * (rho_max + en)
-                    t2 = d / et * (rho_max - en)
-            elif T == BoundaryType.Neumann.value:
-                if dr.abs(en) > 1e-4:
-                    t1 = d / en * (rho_max + et)
-                    t2 = -d / en * (rho_max - et)
-            ta = dr.dot(a - x, tangent)
-            tb = dr.dot(b - x, tangent)
-            tmin = dr.minimum(ta, tb)
-            tmax = dr.maximum(ta, tb)
-            if (t1 > tmin) & (t1 < tmax):
-                dist = dr.norm(pt + t1 * tangent - x)
-                R = dr.minimum(R, dist)
-            if (t2 > tmin) & (t2 < tmax):
-                dist = dr.norm(pt + t2 * tangent - x)
-                R = dr.minimum(R, dist)
-            if ((t1 > tmax) & (t2 > tmax)) | ((t1 < tmin) & (t2 < tmin)):
-                R = dr.minimum(R, dr.norm(a - x))
-                R = dr.minimum(R, dr.norm(b - x))
-        else:
-            R = dr.minimum(R, dr.norm(a - x))
-            R = dr.minimum(R, dr.norm(b - x))
-        return R
+class LineSegments:  # AoS
+    data: Float
+
+    def __init__(self, data: Float):
+        self.data = data
+
+    def __getitem__(self, index):
+        return LineSegment(
+            a=Array2(dr.gather(Float, self.data, 5 * index + 0),
+                     dr.gather(Float, self.data, 5 * index + 1)),
+            b=Array2(dr.gather(Float, self.data, 5 * index + 2),
+                     dr.gather(Float, self.data, 5 * index + 3)),
+            index=Int(dr.gather(Float, self.data, 5 * index + 4)))

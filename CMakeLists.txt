@@ -89,6 +89,7 @@ include_directories(include)
 add_library(gquery-core STATIC
   src/core/parallel.cpp
   src/shapes/bvh.cpp
+  src/shapes/snch.cpp
   src/util/log.cpp
   src/util/check.cpp    
   src/util/print.cpp
@@ -196,5 +197,3 @@ install(FILES
   ${CMAKE_CURRENT_BINARY_DIR}/gquery_ext.pyi 
   DESTINATION gquery
 )
-
-

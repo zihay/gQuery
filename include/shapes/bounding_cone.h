@@ -1,9 +1,7 @@
 #pragma once
 
-#include <core/bounding_box.h>
+#include <shapes/bounding_box.h>
 #include <core/fwd.h>
-#include <core/parallel.h>
-#include <primitives/line_segment.h>
 
 #include <atomic>
 #include <memory_resource>

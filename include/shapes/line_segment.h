@@ -16,9 +16,15 @@ struct LineSegment : public Primitive<2, LineSegment> {
         box.expand(b);
         return box;
     }
-    
+
     Vector centroid() const {
         return (a + b) * 0.5f;
+    }
+
+    ArrayX flatten() const {
+        ArrayX ret(5);
+        ret << a, b, Float(index);
+        return ret;
     }
 };
 

@@ -2,6 +2,7 @@
 #include <util/check.h>
 
 #include <memory_resource>
+
 namespace gquery {
 
 using Allocator = std::pmr::polymorphic_allocator<std::byte>;
@@ -100,21 +101,28 @@ BVH<DIM>::BVH(const std::vector<Vector<DIM>>  &vertices,
     if constexpr (DIM == 2) {
         // 2D case - LineSegment construction
         for (int i = 0; i < indices.size(); ++i) {
-            auto index = indices[i];
-            auto v0    = vertices[index[0]];
-            auto v1    = vertices[index[1]];
-            m_primitives.push_back(LineSegment{ v0, v1 });
-            m_primitives.back().index = i;
+            auto        index = indices[i];
+            auto        v0    = vertices[index[0]];
+            auto        v1    = vertices[index[1]];
+            LineSegment line_segment;
+            line_segment.index = i;
+            line_segment.a     = v0;
+            line_segment.b     = v1;
+            m_primitives.push_back(line_segment);
         }
     } else if constexpr (DIM == 3) {
         // 3D case - Triangle construction
         for (int i = 0; i < indices.size(); ++i) {
-            auto index = indices[i];
-            auto v0    = vertices[index[0]];
-            auto v1    = vertices[index[1]];
-            auto v2    = vertices[index[2]];
-            m_primitives.push_back(Triangle{ v0, v1, v2 });
-            m_primitives.back().index = i;
+            auto     index = indices[i];
+            auto     v0    = vertices[index[0]];
+            auto     v1    = vertices[index[1]];
+            auto     v2    = vertices[index[2]];
+            Triangle triangle;
+            triangle.index = i;
+            triangle.a     = v0;
+            triangle.b     = v1;
+            triangle.c     = v2;
+            m_primitives.push_back(triangle);
         }
     }
 
@@ -313,42 +321,37 @@ int BVH<DIM>::flatten_bvh(BVHBuildNodeType *node, int *offset) {
     return my_offset;
 }
 
-// Implementation of BVH::to_soa_bvh
 template <size_t DIM>
-SoABVH<DIM> BVH<DIM>::to_soa_bvh() const {
-    return SoABVH<DIM>(*this);
-}
-
-// Implement constructor for BVH<2> with LineSegment primitives
-template <>
-BVH<2>::BVH(const std::vector<LineSegment> &primitives,
-            int max_prims_in_node, BVH<2>::SplitMethod split_method)
-    : m_primitives(primitives), m_max_prims_in_node(max_prims_in_node),
-      m_split_method(split_method) {
-    build();
-}
-
-// Implement constructor for BVH<2> with vertices and indices
-template <>
-BVH<2>::BVH(const std::vector<Vector2>  &vertices,
-            const std::vector<Vector2i> &indices,
-            int max_prims_in_node, SplitMethod split_method)
-    : m_max_prims_in_node(max_prims_in_node), m_split_method(split_method) {
-    // Convert vertices and indices to LineSegment primitives
-    m_primitives.reserve(indices.size());
-    for (size_t i = 0; i < indices.size(); ++i) {
-        LineSegment segment;
-        segment.a     = vertices[indices[i][0]];
-        segment.b     = vertices[indices[i][1]];
-        segment.index = i;
-        m_primitives.push_back(segment);
+ArrayX BVH<DIM>::primitive_data() const {
+    if (m_primitives.empty()) {
+        return ArrayX();
     }
+    size_t segment_size = m_primitives[0].flatten().size();
+    ArrayX ret(m_primitives.size() * segment_size);
+    for (size_t i = 0; i < m_primitives.size(); ++i) {
+        ret.segment(i * segment_size, segment_size) = m_primitives[i].flatten();
+    }
+    return ret;
+}
 
-    build();
+template <size_t DIM>
+ArrayX BVH<DIM>::node_data() const {
+    if (m_nodes.empty()) {
+        return ArrayX();
+    }
+    size_t segment_size = m_nodes[0].flatten().size();
+    ArrayX ret(m_nodes.size() * segment_size);
+    for (size_t i = 0; i < m_nodes.size(); ++i) {
+        ret.segment(i * segment_size, segment_size) = m_nodes[i].flatten();
+    }
+    return ret;
 }
 
 // Explicit instantiations for SAHSplitMethod only
 template class SAHSplitMethod<2>;
 template class SAHSplitMethod<3>;
 
+// Explicit instantiations for both 2D and 3D
+template class BVH<2>;
+template class BVH<3>;
 } // namespace gquery

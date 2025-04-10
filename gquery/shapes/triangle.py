@@ -83,3 +83,23 @@ class Triangle:
     @dr.syntax
     def is_inside_circle(self, c: Array3, r: Float):
         return (dr.norm(self.a - c) < r) & (dr.norm(self.b - c) < r) & (dr.norm(self.c - c) < r)
+
+
+class Triangles:  # AoS
+    data: Float
+
+    def __init__(self, data: Float):
+        self.data = data
+
+    def __getitem__(self, index: Int):
+        return Triangle(
+            a=Array3(dr.gather(Float, self.data, 10 * index + 0),
+                     dr.gather(Float, self.data, 10 * index + 1),
+                     dr.gather(Float, self.data, 10 * index + 2)),
+            b=Array3(dr.gather(Float, self.data, 10 * index + 3),
+                     dr.gather(Float, self.data, 10 * index + 4),
+                     dr.gather(Float, self.data, 10 * index + 5)),
+            c=Array3(dr.gather(Float, self.data, 10 * index + 6),
+                     dr.gather(Float, self.data, 10 * index + 7),
+                     dr.gather(Float, self.data, 10 * index + 8)),
+            index=Int(dr.gather(Float, self.data, 10 * index + 9)))

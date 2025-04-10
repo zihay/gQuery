@@ -46,15 +46,22 @@ struct BVHPrimitive {
 };
 
 template <size_t DIM>
-struct alignas(32) BVHNode {
+struct BVHNode {
     BoundingBox<DIM> box;
-    union {
-        int primitivesOffset;  // leaf node
-        int secondChildOffset; // interior node
-    };
 
-    uint16_t n_primitives; // 0 if interior node
-    uint8_t  axis;         // for interior node, axis to split on
+    size_t primitivesOffset;  // leaf node
+    size_t secondChildOffset; // interior node
+
+    size_t n_primitives; // 0 if interior node
+    size_t axis;         // for interior node, axis to split on
+
+    bool is_leaf() const { return n_primitives > 0; }
+
+    ArrayX flatten() const {
+        ArrayX ret(DIM * 2 + 3);
+        ret << box.p_min, box.p_max, Float(primitivesOffset), Float(secondChildOffset), Float(n_primitives);
+        return ret;
+    }
 };
 
 /**
@@ -116,6 +123,13 @@ struct SoAPrimitiveTypeSelector<3> {
 };
 
 /**
+ * @brief Methods for splitting nodes during BVH construction.
+ */
+enum class SplitMethod {
+    SAH ///< Surface Area Heuristic - balances construction cost vs traversal efficiency
+};
+
+/**
  * @brief Main BVH class that builds and contains the acceleration structure.
  *
  * Provides methods for constructing and traversing a Bounding Volume Hierarchy
@@ -130,13 +144,6 @@ public:
     using BVHNodeType      = BVHNode<DIM>;
     using BVHBuildNodeType = BVHBuildNode<DIM>;
     using BVHPrimitiveType = BVHPrimitive<DIM>;
-
-    /**
-     * @brief Methods for splitting nodes during BVH construction.
-     */
-    enum class SplitMethod {
-        SAH ///< Surface Area Heuristic - balances construction cost vs traversal efficiency
-    };
 
     /**
      * @brief Builds a BVH from a collection of vertices and indices.
@@ -178,14 +185,29 @@ public:
 
     int flatten_bvh(BVHBuildNodeType *node, int *offset);
 
+    /**
+     * @brief Returns a flattened array of primitive data.
+     *
+     * @return ArrayX containing flattened primitive data
+     */
+    ArrayX primitive_data() const;
+
+    /**
+     * @brief Returns a flattened array of node data.
+     *
+     * @return ArrayX containing flattened node data
+     */
+    ArrayX node_data() const;
+
     // convert to SoABVH
     SoABVH<DIM> to_soa_bvh() const;
 
-    int                      m_max_prims_in_node; ///< Maximum primitives in a leaf node
-    std::vector<PrimitiveT>  m_primitives;        ///< Original primitives
-    std::vector<PrimitiveT>  m_ordered_prims;     ///< Ordered primitives
-    SplitMethod              m_split_method;      ///< Method used for node splitting
-    std::vector<BVHNodeType> m_nodes;             ///< Flattened BVH nodes
+    int         m_max_prims_in_node; ///< Maximum primitives in a leaf node
+    SplitMethod m_split_method;      ///< Method used for node splitting
+
+    std::vector<PrimitiveT>  m_primitives;    ///< Original primitives
+    std::vector<PrimitiveT>  m_ordered_prims; ///< Ordered primitives
+    std::vector<BVHNodeType> m_nodes;         ///< Flattened BVH nodes
 };
 
 template <size_t DIM>
@@ -244,12 +266,5 @@ struct SoABVH {
     SoAPrimitiveType primitives;
     SoAPrimitiveType sorted_primitives;
 };
-
-// Explicit instantiations for both 2D and 3D
-// Explicit instantiation for 2D (LineSegment)
-template class BVH<2>;
-
-// Explicit instantiation for 3D (Triangle)
-template class BVH<3>;
 
 } // namespace gquery

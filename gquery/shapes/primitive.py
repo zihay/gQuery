@@ -66,3 +66,19 @@ class BoundarySamplingRecord3D:
     pdf: Float  # pdf of the sample point
     prim_id: Int = Int(-1)  # id of the primitive
     pmf: Float = Float(1.)  # probability of the sample primitive
+
+
+@dataclass
+class ClosestSilhouettePointRecord:
+    valid: Bool
+    p: Array2
+    d: Float = Float(dr.inf)
+    prim_id: Int = Int(-1)
+
+
+@dataclass
+class ClosestSilhouettePointRecord3D:
+    valid: Bool
+    p: Array3
+    d: Float = Float(dr.inf)
+    prim_id: Int = Int(-1)

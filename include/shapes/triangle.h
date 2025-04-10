@@ -21,6 +21,12 @@ struct Triangle : public Primitive<3, Triangle> {
     Vector3 centroid() const {
         return (a + b + c) * (1.0f/3.0f);
     }
+
+    ArrayX flatten() const {
+        ArrayX ret(10);
+        ret << a, b, c, Float(index);
+        return ret;
+    }
 };
 
 struct SoATriangle {
