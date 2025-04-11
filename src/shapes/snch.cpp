@@ -251,6 +251,19 @@ ArrayX SNCH<DIM>::silhouette_data() const {
 }
 
 template <size_t DIM>
+ArrayX SNCH<DIM>::raw_silhouette_data() const {
+    if (m_silhouettes.empty()) {
+        return ArrayX();
+    }
+    size_t segment_size = m_silhouettes[0].flatten().size();
+    ArrayX ret(m_silhouettes.size() * segment_size);
+    for (size_t i = 0; i < m_silhouettes.size(); ++i) {
+        ret.segment(i * segment_size, segment_size) = m_silhouettes[i].flatten();
+    }
+    return ret;
+}
+
+template <size_t DIM>
 ArrayX SNCH<DIM>::node_data() const {
     if (m_nodes.empty()) {
         return ArrayX();

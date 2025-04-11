@@ -171,3 +171,11 @@ inline T cross(const Eigen::Matrix<T, 2, 1> &a, const Eigen::Matrix<T, 2, 1> &b)
 inline bool in_range(Float x, Float min, Float max) {
     return x >= min and x <= max;
 }
+
+// Custom hash function for std::pair<size_t, size_t>
+struct PairHash {
+    std::size_t operator()(const std::pair<size_t, size_t> &p) const {
+        // Combine the hash of both elements using a simple but effective hash combination technique
+        return std::hash<size_t>{}(p.first) ^ (std::hash<size_t>{}(p.second) << 1);
+    }
+};

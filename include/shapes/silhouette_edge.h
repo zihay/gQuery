@@ -55,4 +55,11 @@ struct SilhouetteEdge {
         return ret;
     }
 };
+
+std::vector<SilhouetteEdge> build_silhouette_edges(const std::vector<Vector<3>>  &vertices,
+                                                   const std::vector<Vectori<3>> &indices);
+
+ArrayX build_flat_silhouette_edges(const std::vector<Vector<3>>  &vertices,
+                                   const std::vector<Vectori<3>> &indices);
+
 } // namespace gquery

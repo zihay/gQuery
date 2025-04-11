@@ -26,14 +26,6 @@ struct SNCHBuildNode {
     int               n_primitives;      ///< Number of primitives (0 for interior nodes)
 };
 
-// Custom hash function for std::pair<size_t, size_t>
-struct PairHash {
-    std::size_t operator()(const std::pair<size_t, size_t> &p) const {
-        // Combine the hash of both elements using a simple but effective hash combination technique
-        return std::hash<size_t>{}(p.first) ^ (std::hash<size_t>{}(p.second) << 1);
-    }
-};
-
 template <size_t DIM>
 struct SNCHNode {
     BoundingBox<DIM>  box;
@@ -80,6 +72,7 @@ public:
 
     ArrayX primitive_data() const;
     ArrayX silhouette_data() const;
+    ArrayX raw_silhouette_data() const;
     ArrayX node_data() const;
 
 public:

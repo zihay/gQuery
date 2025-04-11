@@ -1,8 +1,9 @@
 from gquery.core.fwd import *
 from gquery.core.math import closest_point_triangle
+from gquery.shapes.silhouette_edge import SilhouetteEdge, SilhouetteEdges
 from gquery.shapes.snch3d import SNCH3D
 from gquery.shapes.bvh3d import BVH3D
-from gquery.shapes.primitive import ClosestPointRecord3D, Intersection3D
+from gquery.shapes.primitive import ClosestPointRecord3D, ClosestSilhouettePointRecord3D, Intersection3D
 from gquery.shapes.triangle import Triangle
 
 
@@ -13,13 +14,19 @@ class Mesh:
     bvh: BVH3D
     snch: SNCH3D
 
+    silhouettes: SilhouetteEdges
+
     def __init__(self, vertices: Array3, indices: Array3i):
         self.vertices = vertices
         self.indices = indices
 
         self.bvh = BVH3D(self.vertices, self.indices)
-        # self.snch = SNCH3D(self.vertices, self.indices)
+        self.snch = SNCH3D(self.vertices, self.indices)
 
+        from gquery.gquery_ext import build_flat_silhouette_edges
+        self.silhouettes = SilhouetteEdges(
+            Float(build_flat_silhouette_edges(
+                self.vertices.numpy().T, self.indices.numpy().T)))
         self.configure()
 
     def configure(self):
@@ -112,3 +119,21 @@ class Mesh:
     @dr.syntax
     def closest_point_bvh(self, x: Array3) -> ClosestPointRecord3D:
         return self.bvh.closest_point(x)
+
+    @dr.syntax
+    def closest_silhouette_baseline(self, p: Array3, r_max: Float = Float(dr.inf)):
+        i = Int(0)
+        d_min = Float(r_max)
+        c_rec = dr.zeros(ClosestSilhouettePointRecord3D)
+        while i < self.silhouettes.size():
+            silhouette = self.silhouettes[i]
+            _c_rec = silhouette.closest_silhouette(p, r_max)
+            if _c_rec.valid & (_c_rec.d < d_min):
+                d_min = _c_rec.d
+                c_rec = _c_rec
+            i += 1
+        return c_rec
+
+    @dr.syntax
+    def closest_silhouette_snch(self, p: Array3, r_max: Float = Float(dr.inf)):
+        return self.snch.closest_silhouette(p, r_max)

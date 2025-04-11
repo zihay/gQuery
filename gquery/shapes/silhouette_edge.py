@@ -25,9 +25,11 @@ class SilhouetteEdge:
     face_indices: Array2i = Array2i(-1, -1)  # indices of the two faces
     prim_id: Int = Int(-1)  # prim_id in the new silhouette array
 
+    @dr.syntax
     def n0(self):
         return dr.normalize(dr.cross(self.b - self.a, self.c - self.a))
 
+    @dr.syntax
     def n1(self):
         return dr.normalize(dr.cross(self.d - self.a, self.b - self.a))
 
@@ -70,13 +72,13 @@ class SilhouetteEdges:
 
     def __getitem__(self, index: Int):
         return SilhouetteEdge(
-            a=Array3(dr.gather(Float, self.data, 19 * index + 0),
+            c=Array3(dr.gather(Float, self.data, 19 * index + 0),
                      dr.gather(Float, self.data, 19 * index + 1),
                      dr.gather(Float, self.data, 19 * index + 2)),
-            b=Array3(dr.gather(Float, self.data, 19 * index + 3),
+            a=Array3(dr.gather(Float, self.data, 19 * index + 3),
                      dr.gather(Float, self.data, 19 * index + 4),
                      dr.gather(Float, self.data, 19 * index + 5)),
-            c=Array3(dr.gather(Float, self.data, 19 * index + 6),
+            b=Array3(dr.gather(Float, self.data, 19 * index + 6),
                      dr.gather(Float, self.data, 19 * index + 7),
                      dr.gather(Float, self.data, 19 * index + 8)),
             d=Array3(dr.gather(Float, self.data, 19 * index + 9),
@@ -90,3 +92,6 @@ class SilhouetteEdges:
                                  Int(dr.gather(Float, self.data, 19 * index + 17))),
             index=Int(dr.gather(Float, self.data, 19 * index + 18)),
             prim_id=Int(dr.gather(Float, self.data, 19 * index + 18)))
+
+    def size(self):
+        return dr.width(self.data) // 19

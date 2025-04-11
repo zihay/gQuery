@@ -228,6 +228,7 @@ NB_MODULE(gquery_ext, m) {
              "vertices"_a, "indices"_a, "max_prims_in_node"_a = 10, "split_method"_a = gquery::SplitMethod::SAH)
         .def("primitive_data", &gquery::SNCH<2>::primitive_data)
         .def("silhouette_data", &gquery::SNCH<2>::silhouette_data)
+        .def("raw_silhouette_data", &gquery::SNCH<2>::raw_silhouette_data)
         .def("node_data", &gquery::SNCH<2>::node_data)
         .def_ro("flat_tree", &gquery::SNCH<2>::m_nodes)
         .def_ro("primitives", &gquery::SNCH<2>::m_primitives)
@@ -240,7 +241,11 @@ NB_MODULE(gquery_ext, m) {
         .def("primitive_data", &gquery::SNCH<3>::primitive_data)
         .def("silhouette_data", &gquery::SNCH<3>::silhouette_data)
         .def("node_data", &gquery::SNCH<3>::node_data)
+        .def("raw_silhouette_data", &gquery::SNCH<3>::raw_silhouette_data)
         .def_ro("flat_tree", &gquery::SNCH<3>::m_nodes)
         .def_ro("primitives", &gquery::SNCH<3>::m_primitives)
         .def_ro("silhouettes", &gquery::SNCH<3>::m_silhouettes);
+
+    // Bind build_flat_silhouette_edges
+    m.def("build_flat_silhouette_edges", &gquery::build_flat_silhouette_edges);
 }
