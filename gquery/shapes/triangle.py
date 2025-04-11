@@ -90,8 +90,21 @@ class Triangles:  # AoS
 
     def __init__(self, data: Float):
         self.data = data
+        index = dr.arange(Int, dr.width(self.data) // 10)
+        self.SoA = Triangle(
+            a=Array3(dr.gather(Float, self.data, 10 * index + 0),
+                     dr.gather(Float, self.data, 10 * index + 1),
+                     dr.gather(Float, self.data, 10 * index + 2)),
+            b=Array3(dr.gather(Float, self.data, 10 * index + 3),
+                     dr.gather(Float, self.data, 10 * index + 4),
+                     dr.gather(Float, self.data, 10 * index + 5)),
+            c=Array3(dr.gather(Float, self.data, 10 * index + 6),
+                     dr.gather(Float, self.data, 10 * index + 7),
+                     dr.gather(Float, self.data, 10 * index + 8)),
+            index=Int(dr.gather(Float, self.data, 10 * index + 9)))
 
     def __getitem__(self, index: Int):
+        # return dr.gather(Triangle, self.SoA, index)
         return Triangle(
             a=Array3(dr.gather(Float, self.data, 10 * index + 0),
                      dr.gather(Float, self.data, 10 * index + 1),

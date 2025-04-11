@@ -14,10 +14,185 @@ from gquery.shapes.mesh import Mesh
 from gquery.core.fwd import *
 from gquery.util.obj_loader import load_obj_3d
 import polyscope as ps
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Dict, List
 
 
 class RayIntersectionMeshVisualizer(MeshViewer):
+    def _generate_random_rays(self,
+                              num_rays: int,
+                              min_bounds: np.ndarray,
+                              max_bounds: np.ndarray) -> Tuple[List[Array3], List[Array3]]:
+        """
+        Generate random ray origins and directions for testing.
+
+        Args:
+            num_rays: Number of rays to generate
+            min_bounds: Minimum bounds of the scene
+            max_bounds: Maximum bounds of the scene
+
+        Returns:
+            Tuple of (origins, directions) lists
+        """
+        # Expand bounds slightly to ensure rays can start outside the mesh
+        bounds_range = max_bounds - min_bounds
+        expanded_min = min_bounds - bounds_range * 0.2
+        expanded_max = max_bounds + bounds_range * 0.2
+
+        # Generate random origins within the expanded bounds
+        origins_np = np.random.uniform(
+            expanded_min, expanded_max, size=(num_rays, 3))
+
+        # Generate random directions (uniformly distributed on unit sphere)
+        theta = np.random.uniform(0, np.pi, size=num_rays)
+        phi = np.random.uniform(0, 2*np.pi, size=num_rays)
+
+        directions_np = np.zeros((num_rays, 3))
+        directions_np[:, 0] = np.sin(theta) * np.cos(phi)  # x
+        directions_np[:, 1] = np.sin(theta) * np.sin(phi)  # y
+        directions_np[:, 2] = np.cos(theta)  # z
+
+        # Convert to Array3 for gquery
+        origins = Array3(origins_np.T)
+        directions = Array3(directions_np.T)
+
+        return origins, directions
+
+    def _run_baseline_test(self,
+                           num_rays: int,
+                           min_bounds: np.ndarray,
+                           max_bounds: np.ndarray,
+                           r_max: float = float('inf')) -> Dict[str, Any]:
+        """
+        Run a performance test for the baseline ray intersection method.
+
+        Args:
+            num_rays: Number of rays to test
+            min_bounds: Minimum bounds of the scene
+            max_bounds: Maximum bounds of the scene
+            r_max: Maximum ray distance
+
+        Returns:
+            Dictionary with timing results
+        """
+        # Generate random rays for testing
+        origins, directions = self._generate_random_rays(
+            num_rays, min_bounds, max_bounds)
+
+        # Test baseline method
+        baseline_start = time.time()
+        intersection = self.mesh.intersect_baseline(
+            origins, directions, Float(r_max))
+        dr.eval(intersection)
+        print(dr.mean(intersection.d))
+        baseline_time = time.time() - baseline_start
+
+        # Calculate performance metrics
+        results = {
+            "total_time": baseline_time,
+            "avg_time": (baseline_time * 1000) / num_rays,  # ms per ray
+            "num_rays": num_rays
+        }
+
+        return results
+
+    def _run_bvh_test(self,
+                      num_rays: int,
+                      min_bounds: np.ndarray,
+                      max_bounds: np.ndarray,
+                      r_max: float = float('inf')) -> Dict[str, Any]:
+        """
+        Run a performance test for the BVH ray intersection method.
+
+        Args:
+            num_rays: Number of rays to test
+            min_bounds: Minimum bounds of the scene
+            max_bounds: Maximum bounds of the scene
+            r_max: Maximum ray distance
+
+        Returns:
+            Dictionary with timing results
+        """
+        # Generate random rays for testing
+        origins, directions = self._generate_random_rays(
+            num_rays, min_bounds, max_bounds)
+
+        # Test BVH method
+        bvh_start = time.time()
+        intersection = self.mesh.intersect_bvh(
+            origins, directions, Float(r_max))
+        dr.eval(intersection)
+        print(dr.mean(intersection.d))
+        bvh_time = time.time() - bvh_start
+
+        # Calculate performance metrics
+        results = {
+            "total_time": bvh_time,
+            "avg_time": (bvh_time * 1000) / num_rays,  # ms per ray
+            "num_rays": num_rays
+        }
+
+        return results
+
+    def _run_performance_test(self,
+                              num_rays: int,
+                              min_bounds: np.ndarray,
+                              max_bounds: np.ndarray,
+                              r_max: float = float('inf')) -> Dict[str, Any]:
+        """
+        Run a performance test comparing baseline and BVH methods.
+
+        Args:
+            num_rays: Number of rays to test
+            min_bounds: Minimum bounds of the scene
+            max_bounds: Maximum bounds of the scene
+            r_max: Maximum ray distance
+
+        Returns:
+            Dictionary with timing results
+        """
+        # Generate random rays for testing
+        origins, directions = self._generate_random_rays(
+            num_rays, min_bounds, max_bounds)
+
+        # Test baseline method
+        baseline_start = time.time()
+        baseline_hits = 0
+        for i in range(num_rays):
+            intersection = self.mesh.intersect_baseline(
+                origins[i], directions[i], Float(r_max))
+            dr.eval(intersection)
+            if bool(intersection.valid.numpy()[0]):
+                baseline_hits += 1
+        baseline_time = time.time() - baseline_start
+
+        # Test BVH method
+        bvh_start = time.time()
+        bvh_hits = 0
+        for i in range(num_rays):
+            intersection = self.mesh.intersect_bvh(
+                origins[i], directions[i], Float(r_max))
+            dr.eval(intersection)
+            if bool(intersection.valid.numpy()[0]):
+                bvh_hits += 1
+        bvh_time = time.time() - bvh_start
+
+        # Calculate performance metrics
+        results = {
+            "baseline_total_time": baseline_time,
+            # ms per ray
+            "baseline_avg_time": (baseline_time * 1000) / num_rays,
+            "baseline_hits": baseline_hits,
+            "baseline_hit_percent": (baseline_hits / num_rays) * 100,
+            "bvh_total_time": bvh_time,
+            "bvh_avg_time": (bvh_time * 1000) / num_rays,  # ms per ray
+            "bvh_hits": bvh_hits,
+            "bvh_hit_percent": (bvh_hits / num_rays) * 100,
+            "speedup": baseline_time / bvh_time if bvh_time > 0 else float('inf'),
+            "num_rays": num_rays
+        }
+
+        return results
+
     def add_ray_intersection_visualization(
         self,
         initial_origin: Optional[np.ndarray] = None,
@@ -35,7 +210,7 @@ class RayIntersectionMeshVisualizer(MeshViewer):
         ray_line_width: float = 0.001,
         ray_length: float = 10.0,
         # Normal visualization options
-        show_normal: bool = True,
+        show_normal: bool = False,
         normal_line_name: str = "normal_line",
         normal_line_color: Tuple[float, float, float] = (0.0, 0.8, 0.8),
         normal_line_width: float = 0.001,
@@ -222,11 +397,22 @@ class RayIntersectionMeshVisualizer(MeshViewer):
         window_pos = np.array([self.window_size[0] - window_width - 20, 30])
         first_frame = True
 
+        # Performance test variables
+        perf_test_results = None
+        is_running_baseline_test = False
+        is_running_bvh_test = False
+        test_num_rays = 10000
+        baseline_results = None
+        bvh_results = None
+
         # Define the callback function for the GUI
         def ray_intersection_gui_callback():
             nonlocal ray_origin_pos, ray_direction, window_pos, first_frame
             nonlocal intersection_record, last_query_time, intersection_point_pos
             nonlocal is_valid_intersection, r_max, current_use_bvh
+            nonlocal perf_test_results, test_num_rays
+            nonlocal is_running_baseline_test, is_running_bvh_test
+            nonlocal baseline_results, bvh_results
 
             # Only set the window position on the first frame to avoid jitter
             if first_frame:
@@ -255,6 +441,116 @@ class RayIntersectionMeshVisualizer(MeshViewer):
                 changed_bvh, current_use_bvh = ps.imgui.Checkbox(
                     "Use BVH Acceleration", current_use_bvh)
                 ps.imgui.Spacing()
+                ps.imgui.Separator()
+
+                # Performance testing section
+                ps.imgui.TextColored((1.0, 0.2, 0.6, 1.0),
+                                     "Performance Testing")
+                ps.imgui.Spacing()
+
+                # Number of rays slider
+                _, test_num_rays = ps.imgui.SliderInt("Number of Rays",
+                                                      test_num_rays,
+                                                      1000,
+                                                      100000)
+                ps.imgui.Spacing()
+
+                # Run test buttons - side by side
+                is_running_any_test = is_running_baseline_test or is_running_bvh_test
+
+                if not is_running_any_test:
+                    ps.imgui.BeginGroup()
+                    # Baseline test button
+                    if ps.imgui.Button("Test Brute Force", (150, 30)):
+                        is_running_baseline_test = True
+                        ps.info(
+                            f"Starting brute force test with {test_num_rays} rays...")
+                        baseline_results = self._run_baseline_test(
+                            test_num_rays, min_bounds, max_bounds, r_max)
+                        is_running_baseline_test = False
+                        ps.info("Brute force test completed!")
+
+                    ps.imgui.SameLine()
+
+                    # BVH test button
+                    if ps.imgui.Button("Test BVH", (150, 30)):
+                        is_running_bvh_test = True
+                        ps.info(
+                            f"Starting BVH test with {test_num_rays} rays...")
+                        bvh_results = self._run_bvh_test(
+                            test_num_rays, min_bounds, max_bounds, r_max)
+                        is_running_bvh_test = False
+                        ps.info("BVH test completed!")
+                    ps.imgui.EndGroup()
+
+                else:
+                    # Show that test is running
+                    if is_running_baseline_test:
+                        ps.imgui.Text("Running baseline test... please wait")
+                    if is_running_bvh_test:
+                        ps.imgui.Text("Running BVH test... please wait")
+
+                ps.imgui.Spacing()
+
+                # Display individual test results
+                ps.imgui.Separator()
+                ps.imgui.TextColored((1.0, 0.8, 0.2, 1.0), "Test Results")
+                ps.imgui.Spacing()
+
+                # Display baseline results if available
+                if baseline_results is not None:
+                    ps.imgui.TextColored(
+                        (1.0, 0.6, 0.4, 1.0), "Baseline Method:")
+                    ps.imgui.Text(
+                        f"  Number of rays: {baseline_results['num_rays']}")
+                    ps.imgui.Text(
+                        f"  Total time: {baseline_results['total_time']:.3f} seconds")
+                    ps.imgui.Text(
+                        f"  Average per ray: {baseline_results['avg_time']:.3f} ms")
+                    ps.imgui.Spacing()
+
+                # Display BVH results if available
+                if bvh_results is not None:
+                    ps.imgui.TextColored((0.4, 0.8, 1.0, 1.0), "BVH Method:")
+                    ps.imgui.Text(
+                        f"  Number of rays: {bvh_results['num_rays']}")
+                    ps.imgui.Text(
+                        f"  Total time: {bvh_results['total_time']:.3f} seconds")
+                    ps.imgui.Text(
+                        f"  Average per ray: {bvh_results['avg_time']:.3f} ms")
+                    ps.imgui.Spacing()
+
+                # Display comparison if both results are available
+                if baseline_results is not None and bvh_results is not None:
+                    ps.imgui.Separator()
+                    ps.imgui.TextColored(
+                        (0.2, 1.0, 0.6, 1.0), "Performance Comparison")
+                    ps.imgui.Spacing()
+
+                    # Calculate speedup
+                    speedup = baseline_results['total_time'] / \
+                        bvh_results['total_time'] if bvh_results['total_time'] > 0 else float(
+                            'inf')
+
+                    # Highlight the speedup
+                    if speedup > 1.0:
+                        ps.imgui.TextColored((0.0, 1.0, 0.0, 1.0),
+                                             f"BVH is {speedup:.2f}x faster than baseline")
+                    else:
+                        ps.imgui.TextColored((1.0, 0.5, 0.0, 1.0),
+                                             f"Baseline is {1.0/speedup:.2f}x faster than BVH")
+
+                    # Additional stats
+                    speedup_percent = (
+                        speedup - 1.0) * 100 if speedup > 1.0 else (1.0 - 1.0/speedup) * 100
+                    ps.imgui.Text(
+                        f"Performance improvement: {abs(speedup_percent):.1f}%")
+
+                    # Time difference
+                    time_diff = abs(
+                        baseline_results['total_time'] - bvh_results['total_time'])
+                    ps.imgui.Text(f"Time saved: {time_diff:.3f} seconds")
+
                 ps.imgui.Separator()
 
                 # Origin position controls
@@ -589,7 +885,7 @@ def run_ray_intersection_mesh_demo():
     Run a demonstration of the ray intersection visualization feature for meshes.
     """
     # Load a 3D mesh (bunny model)
-    vertices, faces = load_obj_3d(BASE_DIR / "data/bunny.obj")
+    vertices, faces = load_obj_3d(BASE_DIR / "data/bunny_hi.obj")
 
     # Create the mesh object
     mesh = Mesh(Array3(vertices.T), Array3i(faces.T))
@@ -617,7 +913,7 @@ def run_ray_intersection_mesh_demo():
         ray_line_width=0.002,
         ray_length=2.0,
         # Show normal at intersection point
-        show_normal=True,
+        show_normal=False,
         normal_line_color=(0.0, 0.8, 0.8),
         normal_line_width=0.002,
         normal_line_length=0.1,
@@ -628,7 +924,7 @@ def run_ray_intersection_mesh_demo():
         # Show information about the intersection
         show_intersection_info=True
     )
-    
+
     # Show the visualization
     viewer.show()
 

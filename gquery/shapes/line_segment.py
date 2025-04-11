@@ -92,10 +92,10 @@ class LineSegments:  # AoS
             index=Int(dr.gather(Float, self.data, 5 * index + 4)))
 
     def __getitem__(self, index):
-        return dr.gather(LineSegment, self.SoA, index)
-        # return LineSegment(
-        #     a=Array2(dr.gather(Float, self.data, 5 * index + 0),
-        #              dr.gather(Float, self.data, 5 * index + 1)),
-        #     b=Array2(dr.gather(Float, self.data, 5 * index + 2),
-        #              dr.gather(Float, self.data, 5 * index + 3)),
-        #     index=Int(dr.gather(Float, self.data, 5 * index + 4)))
+        # return dr.gather(LineSegment, self.SoA, index)
+        return LineSegment(
+            a=Array2(dr.gather(Float, self.data, 5 * index + 0),
+                     dr.gather(Float, self.data, 5 * index + 1)),
+            b=Array2(dr.gather(Float, self.data, 5 * index + 2),
+                     dr.gather(Float, self.data, 5 * index + 3)),
+            index=Int(dr.gather(Float, self.data, 5 * index + 4)))

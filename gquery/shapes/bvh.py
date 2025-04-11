@@ -94,16 +94,16 @@ class BVHNodes:
             n_references=Int(dr.gather(Float, self.data, 7 * index + 6)))
 
     def __getitem__(self, index):
-        return dr.gather(BVHNode, self.SoA, index)
-        # return BVHNode(
-        #     box=BoundingBox(p_min=Array2(dr.gather(Float, self.data, 7 * index + 0),
-        #                                  dr.gather(Float, self.data, 7 * index + 1)),
-        #                     p_max=Array2(dr.gather(Float, self.data, 7 * index + 2),
-        #                                  dr.gather(Float, self.data, 7 * index + 3))),
-        #     reference_offset=Int(dr.gather(Float, self.data, 7 * index + 4)),
-        #     second_child_offset=Int(
-        #         dr.gather(Float, self.data, 7 * index + 5)),
-        #     n_references=Int(dr.gather(Float, self.data, 7 * index + 6)))
+        # return dr.gather(BVHNode, self.SoA, index)
+        return BVHNode(
+            box=BoundingBox(p_min=Array2(dr.gather(Float, self.data, 7 * index + 0),
+                                         dr.gather(Float, self.data, 7 * index + 1)),
+                            p_max=Array2(dr.gather(Float, self.data, 7 * index + 2),
+                                         dr.gather(Float, self.data, 7 * index + 3))),
+            reference_offset=Int(dr.gather(Float, self.data, 7 * index + 4)),
+            second_child_offset=Int(
+                dr.gather(Float, self.data, 7 * index + 5)),
+            n_references=Int(dr.gather(Float, self.data, 7 * index + 6)))
 
     def size(self):
         return dr.width(self.data) // 7

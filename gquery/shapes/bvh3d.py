@@ -64,8 +64,22 @@ class BVHNode3DAoS:
 
     def __init__(self, data: Float):
         self.data = data
+        index = dr.arange(Int, dr.width(self.data) // 9)
+        self.SoA = BVHNode3D(
+            box=BoundingBox3D(
+                p_min=Array3(dr.gather(Float, self.data, 9 * index + 0),
+                             dr.gather(Float, self.data, 9 * index + 1),
+                             dr.gather(Float, self.data, 9 * index + 2)),
+                p_max=Array3(dr.gather(Float, self.data, 9 * index + 3),
+                             dr.gather(Float, self.data, 9 * index + 4),
+                             dr.gather(Float, self.data, 9 * index + 5))),
+            reference_offset=Int(dr.gather(Float, self.data, 9 * index + 6)),
+            second_child_offset=Int(
+                dr.gather(Float, self.data, 9 * index + 7)),
+            n_references=Int(dr.gather(Float, self.data, 9 * index + 8)))
 
     def __getitem__(self, index: int):
+        # return dr.gather(BVHNode3D, self.SoA, index)
         return BVHNode3D(
             box=BoundingBox3D(
                 p_min=Array3(dr.gather(Float, self.data, 9 * index + 0),
@@ -77,8 +91,7 @@ class BVHNode3DAoS:
             reference_offset=Int(dr.gather(Float, self.data, 9 * index + 6)),
             second_child_offset=Int(
                 dr.gather(Float, self.data, 9 * index + 7)),
-            n_references=Int(dr.gather(Float, self.data, 9 * index + 8))
-        )
+            n_references=Int(dr.gather(Float, self.data, 9 * index + 8)))
 
 
 @dataclass
@@ -164,9 +177,9 @@ class BVH3D:
     def intersect(self, x: Array3, v: Array3, r_max: Float = Float(dr.inf)):
         its = dr.zeros(Intersection3D)
         root_node = self.flat_tree[0]
-        
+
         idx = Int(-1)
-        
+
         hit, t_min, t_max = root_node.box.intersect(x, v, r_max)
         if hit:
             stack = dr.alloc_local(TraversalStack, 64)
@@ -184,7 +197,8 @@ class BVH3D:
                         while j < node.n_references:
                             reference_index = node.reference_offset + j
                             prim = self.primitives[reference_index]
-                            _d = ray_triangle_intersect(x, v, prim.a, prim.b, prim.c)
+                            _d = ray_triangle_intersect(
+                                x, v, prim.a, prim.b, prim.c)
                             if _d < r_max:
                                 r_max = _d
                                 idx = reference_index
@@ -217,11 +231,11 @@ class BVH3D:
                             stack_ptr += 1
                             stack[UInt(stack_ptr)] = TraversalStack(
                                 index=node_index + node.second_child_offset, distance=t_min1)
-        
+
         if idx >= 0:
             prim = self.primitives[idx]
             its = prim.ray_intersect(x, v, r_max)
-        
+
         return its
 
     @dr.syntax
