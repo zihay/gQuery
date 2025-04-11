@@ -2,100 +2,258 @@
 
 [![Test Build](https://github.com/zihay/gquery/actions/workflows/test_build.yml/badge.svg)](https://github.com/zihay/gquery/actions/workflows/test_build.yml)
 [![Build and Release](https://github.com/zihay/gquery/actions/workflows/build_wheels.yml/badge.svg)](https://github.com/zihay/gquery/actions/workflows/build_wheels.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python Versions](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
 
-**gQuery** is a high-performance Python library built with [DrJit](https://github.com/mitsuba-renderer/drjit), designed to efficiently handle geometry queries using Bounding Volume Hierarchies (BVH) and Spatialized Normal Cone Hierarchies (SNCH). It provides fast, accurate solutions tailored for computer graphics and computational geometry applications, including:
 
-- **Closest Point Queries**
-- **Ray Intersection Queries**
-- **Closest Silhouette Queries**
+## Overview
 
-Leveraging DrJit's parallel execution capabilities on both CPU and GPU, gQuery significantly speeds up spatial queries, enabling real-time and interactive workflows in computer graphics, simulations, and more.
+**gQuery** is a high-performance Python library built with [DrJit](https://github.com/mitsuba-renderer/drjit), designed to efficiently handle geometry queries in both 2D and 3D using Bounding Volume Hierarchies (BVH) and Spatialized Normal Cone Hierarchies (SNCH). It provides fast, accurate solutions tailored for computer graphics and computational geometry applications.
 
----
+The acceleration structures (BVH and SNCH) are built on the CPU, while traversal can be performed efficiently on either CPU or GPU, providing flexibility for different computational resources and use cases.
+Leveraging DrJit's parallel execution capabilities on both CPU and GPU, gQuery significantly accelerates spatial queries, enabling real-time and interactive workflows in computer graphics, simulations, and more.
+
+### Supported Queries
+
+- **👉 Closest Point Queries (2D/3D)**: Find the nearest point on geometry from any position
+- **🔍 Ray Intersection Queries (2D/3D)**: Perform efficient ray-intersection tests 
+- **✨ Closest Silhouette Queries (2D/3D)**: Locate closest silhouette vertices/edges from query points
+
 
 ## Key Features
 
-- **DrJit Backend**: Efficient parallel computations seamlessly supported on CPU and GPU.
-- **Efficient Hierarchy Implementation**: Optimized BVH and SNCH construction and traversal algorithms.
-- **Python API**: User-friendly Python interface, perfect for rapid prototyping and integration into existing workflows.
+- **🚀 High Performance**: Optimized for speed with parallel computation support
+- **💻 Multi-Platform**: Run on both CPU and GPU with the same API
+- **🐍 Python-API**: User-friendly Python interface with minimal overhead
 
----
+## Demo
+
+Below are visual demonstrations of gQuery's capabilities. All demo code can be found in the `demo` folder of the repository. You can run these demos directly using Python after installing gQuery.
+
+### 2D Closest Point Queries
+
+<div align="center">
+    <img src="docs/images/closest_point_2d.png" alt="2D Closest Point Query" width="600"/>
+    <p><i>Finding the nearest point on 2D shapes from query points.</i></p>
+</div>
+
+### 2D Ray Intersection Queries
+
+<div align="center">
+    <img src="docs/images/ray_intersect_2d.png" alt="2D Ray Intersection Query" width="600"/>
+    <p><i>Detecting intersections between rays and 2D geometries.</i></p>
+</div>
+
+### 2D Closest Silhouette Queries
+
+<div align="center">
+    <img src="docs/images/closest_silhouette_2d.png" alt="2D Closest Silhouette Query" width="600"/>
+    <p><i>Finding the closest silhouette vertices from a given query point in 2D.</i></p>
+</div>
+
+### 3D Closest Point Queries
+
+<div align="center">
+    <img src="docs/images/closest_point_3d.png" alt="3D Closest Point Query" width="600"/>
+    <p><i>Finding the closest point on a 3D mesh from any query point.</i></p>
+</div>
+
+### 3D Ray Intersection Queries
+
+<div align="center">
+    <img src="docs/images/ray_intersect_3d.png" alt="3D Ray Intersection Query" width="600"/>
+    <p><i>Detecting intersections between rays and 3D geometry.</i></p>
+</div>
+
+### 3D Closest Silhouette Queries
+
+<div align="center">
+    <img src="docs/images/closest_silhouette_3d.png" alt="3D Closest Silhouette Query" width="600"/>
+    <p><i>Finding the closest silhouette edges from a given query point in 3D.</i></p>
+</div>
 
 ## Installation
 
-### Install from GitHub Releases (recommended)
-
-You can install the pre-built wheels from the latest GitHub release:
-
-```bash
-# Install the latest release
-pip install https://github.com/zihay/gquery/releases/download/v0.1.0/gquery-0.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-
-# Or for macOS
-pip install https://github.com/zihay/gquery/releases/download/v0.1.0/gquery-0.1.0-cp310-cp310-macosx_10_14_x86_64.whl
-```
-
-Replace the URL with the specific wheel file that matches your Python version and platform.
-
 ### Install from Source
 
-You can also install directly from the repository:
+For the latest development version:
 
 ```bash
-# Install the latest main branch
+# Clone the repository
+git clone https://github.com/zihay/gquery.git
+cd gquery
+
+# Install in development mode
+pip install -e .
+
+# Or install the latest main branch directly
 pip install git+https://github.com/zihay/gquery.git
-
-# Install a specific branch
-pip install git+https://github.com/zihay/gquery.git@develop
-
-# Install a specific tag/release
-pip install git+https://github.com/zihay/gquery.git@v0.1.0
 ```
 
-Note that installing from source requires you to have all the build dependencies installed, including:
+### Build Requirements
+
+Installing from source requires:
 - C++ compiler with C++20 support
 - CMake 3.15 or newer
 - Eigen3 library
 
----
-
-## Usage Example
-
-Here's how you can perform a simple closest point query:
+## Usage Examples
+### Working with 2D Polylines
 
 ```python
-import gquery
+import numpy as np
+import drjit as dr
+from gquery.core.fwd import Float, Array2, Array2i
+from gquery.shapes.polyline import Polyline
 
-# Load geometry and build query structure
-scene = gquery.Scene(device="gpu")  # or device="cpu"
-scene.load_geometry("scene.obj")
-scene.build()
+# Create a 2D polyline (a simple pentagon)
+vertices = np.array([
+    [0.0, 0.0],
+    [1.0, 0.0],
+    [1.5, 1.0],
+    [0.5, 1.5],
+    [-0.5, 1.0]
+])
+edges = np.array([
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 4],
+    [4, 0]
+])
 
-# Perform a closest point query
-query_point = [1.0, 2.0, 3.0]
-result = scene.closest_point(query_point)
+# Create a polyline
+polyline = Polyline(Array2(vertices.T), Array2i(edges.T))
 
-print(f"Closest point: {result.point}")
-print(f"Distance: {result.distance}")
+# Perform closest point query
+# DrJit array for batch processing
+query_point = Array2(np.array([[0.8, 0.8]]).T)
+
+closest = polyline.closest_point_bvh(query_point)
+
+# Extract results
+print('📍 Closest Point Query:')
+print(f'  Query point: {query_point}')
+print(f'  Closest point: {closest.p}')
+print(f'  Distance: {closest.d}')
+
+
+# Perform ray intersection query
+direction = Array2(np.array([[1.0, 1.0]]).T)
+r_max = Float(dr.inf)
+intersection = polyline.intersect_bvh(query_point, direction, r_max)
+
+print('📌 Ray Intersection:')
+print(f'  Origin: {query_point}')
+print(f'  Direction: {direction}')
+print(f'  Intersection Point: {intersection.p}')
+print(f'  Intersection Distance: {intersection.d}')
+
+
+# Perform silhouette query
+query_point = Array2(np.array([[2., 0.5]]).T)
+silhouette = polyline.closest_silhouette_snch(query_point)
+
+print('📍 Silhouette Query:')
+print(f'  Query point: {query_point}')
+print(f'  Silhouette point: {silhouette.p}')
+print(f'  Distance: {silhouette.d}')
 ```
 
----
+### Working with 3D Meshes
+
+```python
+import numpy as np
+import drjit as dr
+from gquery.core.fwd import Float, Array3, Array3i
+from gquery.shapes.mesh import Mesh
+
+# Create a 3D mesh (a simple tetrahedron)
+vertices = np.array([
+    [0.0, 0.0, 0.0],   # 0
+    [1.0, 0.0, 0.0],   # 1
+    [0.5, 1.0, 0.0],   # 2
+    [0.5, 0.5, 1.0]    # 3
+])
+
+# Define faces for the tetrahedron (triangles)
+faces = np.array([
+    [0, 1, 2],  # bottom face
+    [0, 1, 3],  # side face 1
+    [1, 2, 3],  # side face 2
+    [0, 2, 3]   # side face 3
+])
+
+# Create a mesh
+mesh = Mesh(Array3(vertices.T), Array3i(faces.T))
+
+# Perform closest point query
+# DrJit array for batch processing
+query_point = Array3(np.array([[0.6, 0.6, 0.6]]).T)
+
+closest = mesh.closest_point_bvh(query_point)
+
+# Extract results
+print('📍 Closest Point Query:')
+print(f'  Query point: {query_point}')
+print(f'  Closest point: {closest.p}')
+print(f'  Distance: {closest.d}')
+
+
+# Perform ray intersection query
+direction = Array3(np.array([[1.0, 1.0, 1.0]]).T)
+r_max = Float(dr.inf)
+intersection = mesh.intersect_bvh(query_point, direction, r_max)
+
+print('\n📌 Ray Intersection:')
+print(f'  Origin: {query_point}')
+print(f'  Direction: {direction}')
+print(f'  Intersection Point: {intersection.p}')
+print(f'  Intersection Distance: {intersection.d}')
+
+
+# Perform silhouette query
+query_point = Array3(np.array([[1.5, 0.5, 0.5]]).T)
+silhouette = mesh.closest_silhouette_snch(query_point)
+
+print('\n📍 Silhouette Query:')
+print(f'  Query point: {query_point}')
+print(f'  Silhouette point: {silhouette.p}')
+print(f'  Distance: {silhouette.d}')
+```
+
+## Performance Tips
+
+- 🔥 Use batch queries whenever possible for maximum performance
 
 ## Requirements
 
+- Python 3.8 or newer
 - CUDA-compatible GPU (optional, for GPU acceleration)
 - CUDA Toolkit 11.0 or newer (for GPU execution)
-- Python 3.7 or newer
-- [DrJit](https://github.com/mitsuba-renderer/drjit)
 
----
+## Citing
+
+If you use gQuery in your research, please consider citing:
+
+```bibtex
+@software{gQuery,
+  author = {Zihan Yu},
+  title = {gQuery: Fast CPU and GPU-Accelerated Geometry Queries},
+  month = {April},
+  year = {2025},
+  url = {https://github.com/zihay/gquery}
+}
+```
 
 ## License
 
 gQuery is distributed under the MIT license. See the [LICENSE](LICENSE) file for details.
+## Acknowledgements
 
----
+This project was built upon and inspired by these remarkable open-source libraries:
+- [DrJit](https://github.com/mitsuba-renderer/drjit) - High-performance differentiable ray tracing framework
+- [pbrt-v4](https://github.com/mmp/pbrt-v4) - Physically Based Rendering implementation
+- [FCPW](https://github.com/rohan-sawhney/fcpw) - Fast closest point and spatial queries
+- [Polyscope](https://polyscope.run/) - UI for 3D data visualization
 
-## Contributing
-
-Contributions and feedback are welcome! Please submit pull requests or open issues on GitHub.

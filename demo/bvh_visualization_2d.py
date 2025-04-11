@@ -97,7 +97,7 @@ class BVHVisualizer:
                 compute_node_levels(node_idx + 1, level + 1)
 
                 # Process right child if valid
-                second_child_idx = node.second_child_offset
+                second_child_idx = node_idx + node.second_child_offset
                 if second_child_idx > 0 and second_child_idx < len(self.nodes):
                     compute_node_levels(second_child_idx, level + 1)
 
@@ -616,7 +616,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Visualize a 2D BVH structure using Polyscope")
     parser.add_argument("--obj", type=str,
-                        help="Path to 2D obj file (optional)")
+                        help="Path to 2D obj file (optional)", default="/Users/jarvis/Projects/gQuery/data/workpiece.obj")
     parser.add_argument("--random", action="store_true",
                         help="Use random line segments")
     parser.add_argument("--num_segments", type=int,

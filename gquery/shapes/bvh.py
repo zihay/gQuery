@@ -1,5 +1,3 @@
-import numpy as np
-from examples.visualizer import add_rectangle, clear_rectangles
 from gquery.core.fwd import *
 from dataclasses import dataclass
 from gquery.core.math import closest_point_line_segment, ray_intersection
