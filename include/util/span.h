@@ -15,8 +15,9 @@
 
 namespace gquery {
 
-// If C++20 span is not available, use our custom implementation
-#if defined(__cpp_lib_span) && __cpp_lib_span >= 202002L
+// For now, use our custom implementation to avoid issues with standard library compatibility
+// Later this can be switched to use the standard library span when fully supported
+#if 0 && defined(__cpp_lib_span) && __cpp_lib_span >= 202002L
 #include <span>
 template<typename T>
 using span = std::span<T>;

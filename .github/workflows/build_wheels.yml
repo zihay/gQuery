@@ -42,7 +42,7 @@ jobs:
 
       - uses: pypa/cibuildwheel@v2.22
         env:
-          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
+          CIBW_BUILD: "cp38-* cp39-* cp310-* cp311-* cp312-*"
           CIBW_SKIP: "pp* *-musllinux_* cp312-macosx_arm64"
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_LINUX: "x86_64"
