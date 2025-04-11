@@ -40,7 +40,7 @@ class ClosestPointRecord:
 
 @dataclass
 class ClosestPointRecord3D:
-    valid: Bool  # whether the closest point is valid
+    # valid: Bool  # whether the closest point is valid
     p: Array3  # closest point on the primitive
     n: Array3  # normal at the closest point
     uv: Array2  # uv coordinates of the closest point

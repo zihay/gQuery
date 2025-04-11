@@ -1,9 +1,9 @@
-from core.fwd import *
-from core.math import in_range, project_to_plane
+from gquery.core.fwd import *
+from gquery.core.math import in_range, project_to_plane
 from gquery.shapes.line_segment import LineSegment, LineSegments
 from gquery.shapes.primitive import ClosestSilhouettePointRecord
 from gquery.shapes.silhouette_vertex import SilhouetteVertex, SilhouetteVertices
-from shapes.bvh import BVHNode, BoundingBox, BoundingCone, TraversalStack
+from gquery.shapes.bvh import BVHNode, BoundingBox, BoundingCone, TraversalStack
 
 
 @dataclass
@@ -92,9 +92,10 @@ class SNCHNodes:
 class SNCH:
     flat_tree: SNCHNodes
     primitives: LineSegments
+    # could contain duplicates since the same edge could be inside two nodes
     silhouettes: SilhouetteVertices
 
-    def __init__(self, vertices: Array2, indices: Array2i, types: Int):
+    def __init__(self, vertices: Array2, indices: Array2i):
         import gquery.gquery_ext as gq
         self.c_snch = gq.SNCH(vertices.numpy().T, indices.numpy().T)
         self.flat_tree = SNCHNodes(Float(self.c_snch.node_data()))

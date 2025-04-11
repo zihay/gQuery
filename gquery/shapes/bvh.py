@@ -2,7 +2,7 @@ import numpy as np
 from examples.visualizer import add_rectangle, clear_rectangles
 from gquery.core.fwd import *
 from dataclasses import dataclass
-from gquery.core.math import ray_intersection
+from gquery.core.math import closest_point_line_segment, ray_intersection
 from gquery.shapes.line_segment import LineSegment, LineSegments
 from gquery.shapes.primitive import BoundarySamplingRecord, ClosestPointRecord, Intersection
 
@@ -118,7 +118,7 @@ class TraversalStack:
 # @dataclass
 class BVH:
     flat_tree: BVHNodes
-    primitives: LineSegments
+    primitives: LineSegments  # ordered primitives
 
     def __init__(self, vertices: Array2, indices: Array2i):
         import gquery.gquery_ext as gq
@@ -129,36 +129,33 @@ class BVH:
     @dr.syntax
     def closest_point(self, p: Array2):
         r_max = Float(dr.inf)
-        its = ClosestPointRecord(p=Array2(p),
-                                 n=Array2(0., 0.),
-                                 t=Float(dr.inf),
-                                 d=Float(dr.inf),
-                                 prim_id=Int(-1))
+
         stack_ptr = dr.zeros(Int, dr.width(p))
         stack = dr.alloc_local(TraversalStack, 64)
         stack[0] = TraversalStack(index=Int(0), distance=Float(r_max))
+
+        idx = Int(-1)
+
         while stack_ptr >= 0:
             # pop off the next node to work on
             stack_node = stack[UInt(stack_ptr)]
             node_index = stack_node.index
             current_distance = stack_node.distance
             stack_ptr -= 1
-            if current_distance > r_max:
-                pass
-            else:
+            if current_distance <= r_max:
                 node = self.flat_tree[node_index]
                 if node.n_references > 0:
                     #     # leaf node
                     j = Int(0)
                     while j < node.n_references:
                         reference_index = node.reference_offset + j
-                        prim = dr.gather(
-                            LineSegment, self.primitives, reference_index)
-                        _its = prim.closest_point(p)
-                        if _its.d < its.d:
-                            its = _its
+                        prim = self.primitives[reference_index]
+                        _d, _p, _t = closest_point_line_segment(
+                            p, prim.a, prim.b)
+                        if _d < r_max:
+                            r_max = _d
+                            idx = reference_index
                         j += 1
-                    r_max = dr.minimum(r_max, its.d)
                 else:
                     # non-leaf node
                     node_left = self.flat_tree[node_index + 1]
@@ -195,7 +192,12 @@ class BVH:
                         stack_ptr += 1
                         stack[UInt(stack_ptr)] = TraversalStack(index=node_index + node.second_child_offset,
                                                                 distance=d_min_right)
-        return its
+
+        c_rec = dr.zeros(ClosestPointRecord)
+        if idx != -1:
+            primitive = self.primitives[idx]
+            c_rec = primitive.closest_point(p)
+        return c_rec
 
     @dr.syntax
     def intersect(self, x: Array2, v: Array2, r_max: Float = Float(dr.inf)):

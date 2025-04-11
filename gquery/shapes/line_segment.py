@@ -61,7 +61,7 @@ class LineSegment:
         return its
 
     @dr.syntax
-    def closest_point(self, p: Array2):
+    def closest_point(self, p: Array2) -> ClosestPointRecord:
         pa = p - self.a
         ba = self.b - self.a
         t = dr.normalize(ba)
@@ -70,6 +70,7 @@ class LineSegment:
         i = self.a + ba * h
         d = dr.norm(i - p)
         return ClosestPointRecord(
+            valid=Bool(True),
             p=i,
             n=n,
             t=h,
@@ -82,11 +83,19 @@ class LineSegments:  # AoS
 
     def __init__(self, data: Float):
         self.data = data
-
-    def __getitem__(self, index):
-        return LineSegment(
+        index = dr.arange(Int, dr.width(self.data) // 5)
+        self.SoA = LineSegment(
             a=Array2(dr.gather(Float, self.data, 5 * index + 0),
                      dr.gather(Float, self.data, 5 * index + 1)),
             b=Array2(dr.gather(Float, self.data, 5 * index + 2),
                      dr.gather(Float, self.data, 5 * index + 3)),
             index=Int(dr.gather(Float, self.data, 5 * index + 4)))
+
+    def __getitem__(self, index):
+        return dr.gather(LineSegment, self.SoA, index)
+        # return LineSegment(
+        #     a=Array2(dr.gather(Float, self.data, 5 * index + 0),
+        #              dr.gather(Float, self.data, 5 * index + 1)),
+        #     b=Array2(dr.gather(Float, self.data, 5 * index + 2),
+        #              dr.gather(Float, self.data, 5 * index + 3)),
+        #     index=Int(dr.gather(Float, self.data, 5 * index + 4)))
