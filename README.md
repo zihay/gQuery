@@ -14,9 +14,9 @@ The library builds acceleration structures on CPU while supporting query travers
 
 ### Supported Queries
 
-- **👉 Closest Point Queries (2D/3D)**: Find the nearest point on geometry from any position
-- **🔍 Ray Intersection Queries (2D/3D)**: Perform efficient ray-intersection tests 
-- **✨ Closest Silhouette Queries (2D/3D)**: Locate closest silhouette vertices/edges from query points
+- **Closest Point Queries (2D/3D)**: Find the nearest point on geometry from any position
+- **Ray Intersection Queries (2D/3D)**: Perform efficient ray-intersection tests 
+- **Closest Silhouette Queries (2D/3D)**: Locate closest silhouette vertices/edges from query points
 
 
 ## Key Features
