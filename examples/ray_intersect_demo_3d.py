@@ -53,8 +53,7 @@ class RayIntersectionMeshVisualizer(MeshViewer):
 
         # Convert to Array3 for gquery
         origins = Array3(origins_np.T)
-        directions = Array3(directions_np.T)
-
+        directions = -dr.normalize(origins)
         return origins, directions
 
     def _run_baseline_test(self,
@@ -82,7 +81,7 @@ class RayIntersectionMeshVisualizer(MeshViewer):
         baseline_start = time.time()
         intersection = self.mesh.intersect_baseline(
             origins, directions, Float(r_max))
-        dr.eval(intersection)
+        dr.eval(intersection.d)
         print(dr.mean(intersection.d))
         baseline_time = time.time() - baseline_start
 
@@ -120,7 +119,7 @@ class RayIntersectionMeshVisualizer(MeshViewer):
         bvh_start = time.time()
         intersection = self.mesh.intersect_bvh(
             origins, directions, Float(r_max))
-        dr.eval(intersection)
+        dr.eval(intersection.d)
         print(dr.mean(intersection.d))
         bvh_time = time.time() - bvh_start
 
@@ -128,66 +127,6 @@ class RayIntersectionMeshVisualizer(MeshViewer):
         results = {
             "total_time": bvh_time,
             "avg_time": (bvh_time * 1000) / num_rays,  # ms per ray
-            "num_rays": num_rays
-        }
-
-        return results
-
-    def _run_performance_test(self,
-                              num_rays: int,
-                              min_bounds: np.ndarray,
-                              max_bounds: np.ndarray,
-                              r_max: float = float('inf')) -> Dict[str, Any]:
-        """
-        Run a performance test comparing baseline and BVH methods.
-
-        Args:
-            num_rays: Number of rays to test
-            min_bounds: Minimum bounds of the scene
-            max_bounds: Maximum bounds of the scene
-            r_max: Maximum ray distance
-
-        Returns:
-            Dictionary with timing results
-        """
-        # Generate random rays for testing
-        origins, directions = self._generate_random_rays(
-            num_rays, min_bounds, max_bounds)
-
-        # Test baseline method
-        baseline_start = time.time()
-        baseline_hits = 0
-        for i in range(num_rays):
-            intersection = self.mesh.intersect_baseline(
-                origins[i], directions[i], Float(r_max))
-            dr.eval(intersection)
-            if bool(intersection.valid.numpy()[0]):
-                baseline_hits += 1
-        baseline_time = time.time() - baseline_start
-
-        # Test BVH method
-        bvh_start = time.time()
-        bvh_hits = 0
-        for i in range(num_rays):
-            intersection = self.mesh.intersect_bvh(
-                origins[i], directions[i], Float(r_max))
-            dr.eval(intersection)
-            if bool(intersection.valid.numpy()[0]):
-                bvh_hits += 1
-        bvh_time = time.time() - bvh_start
-
-        # Calculate performance metrics
-        results = {
-            "baseline_total_time": baseline_time,
-            # ms per ray
-            "baseline_avg_time": (baseline_time * 1000) / num_rays,
-            "baseline_hits": baseline_hits,
-            "baseline_hit_percent": (baseline_hits / num_rays) * 100,
-            "bvh_total_time": bvh_time,
-            "bvh_avg_time": (bvh_time * 1000) / num_rays,  # ms per ray
-            "bvh_hits": bvh_hits,
-            "bvh_hit_percent": (bvh_hits / num_rays) * 100,
-            "speedup": baseline_time / bvh_time if bvh_time > 0 else float('inf'),
             "num_rays": num_rays
         }
 

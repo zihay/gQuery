@@ -8,7 +8,7 @@ on the mesh in real-time.
 """
 
 import time
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Dict, List
 import numpy as np
 from examples.mesh_viewer import MeshViewer
 from gquery.shapes.mesh import Mesh
@@ -18,6 +18,147 @@ import polyscope as ps
 
 
 class ClosestPointMeshVisualizer(MeshViewer):
+    def _generate_random_points(self,
+                              num_points: int,
+                              min_bounds: np.ndarray,
+                              max_bounds: np.ndarray) -> Array3:
+        """
+        Generate random query points for testing.
+
+        Args:
+            num_points: Number of points to generate
+            min_bounds: Minimum bounds of the scene
+            max_bounds: Maximum bounds of the scene
+
+        Returns:
+            Array3 of random points
+        """
+        # Expand bounds slightly to ensure points can be outside the mesh
+        bounds_range = max_bounds - min_bounds
+        expanded_min = min_bounds - bounds_range * 0.2
+        expanded_max = max_bounds + bounds_range * 0.2
+
+        # Generate random points within the expanded bounds
+        points_np = np.random.uniform(
+            expanded_min, expanded_max, size=(num_points, 3))
+
+        # Convert to Array3 for gquery
+        points = Array3(points_np.T)
+
+        return points
+
+    def _run_baseline_test(self,
+                           num_points: int,
+                           min_bounds: np.ndarray,
+                           max_bounds: np.ndarray) -> Dict[str, Any]:
+        """
+        Run a performance test for the baseline closest point method.
+
+        Args:
+            num_points: Number of points to test
+            min_bounds: Minimum bounds of the scene
+            max_bounds: Maximum bounds of the scene
+
+        Returns:
+            Dictionary with timing results
+        """
+        # Generate random points for testing
+        points = self._generate_random_points(num_points, min_bounds, max_bounds)
+
+        # Test baseline method
+        baseline_start = time.time()
+        closest = self.mesh.closest_point_baseline(points)
+        dr.eval(closest.d)
+        print(dr.mean(closest.d))
+        baseline_time = time.time() - baseline_start
+
+        # Calculate performance metrics
+        results = {
+            "total_time": baseline_time,
+            "avg_time": (baseline_time * 1000) / num_points,  # ms per point
+            "num_points": num_points
+        }
+
+        return results
+
+    def _run_bvh_test(self,
+                      num_points: int,
+                      min_bounds: np.ndarray,
+                      max_bounds: np.ndarray) -> Dict[str, Any]:
+        """
+        Run a performance test for the BVH closest point method.
+
+        Args:
+            num_points: Number of points to test
+            min_bounds: Minimum bounds of the scene
+            max_bounds: Maximum bounds of the scene
+
+        Returns:
+            Dictionary with timing results
+        """
+        # Generate random points for testing
+        points = self._generate_random_points(num_points, min_bounds, max_bounds)
+
+        # Test BVH method
+        bvh_start = time.time()
+        closest = self.mesh.closest_point_bvh(points)
+        dr.eval(closest.d)
+        print(dr.mean(closest.d))
+        bvh_time = time.time() - bvh_start
+
+        # Calculate performance metrics
+        results = {
+            "total_time": bvh_time,
+            "avg_time": (bvh_time * 1000) / num_points,  # ms per point
+            "num_points": num_points
+        }
+
+        return results
+
+    def _run_performance_test(self,
+                              num_points: int,
+                              min_bounds: np.ndarray,
+                              max_bounds: np.ndarray) -> Dict[str, Any]:
+        """
+        Run a performance test comparing baseline and BVH methods.
+
+        Args:
+            num_points: Number of points to test
+            min_bounds: Minimum bounds of the scene
+            max_bounds: Maximum bounds of the scene
+
+        Returns:
+            Dictionary with timing results
+        """
+        # Generate random points for testing
+        points = self._generate_random_points(num_points, min_bounds, max_bounds)
+
+        # Test baseline method
+        baseline_start = time.time()
+        baseline_closest = self.mesh.closest_point_baseline(points)
+        dr.eval(baseline_closest.d)
+        print(dr.mean(baseline_closest.d))
+        baseline_time = time.time() - baseline_start
+
+        # Test BVH method
+        bvh_start = time.time()
+        bvh_closest = self.mesh.closest_point_bvh(points)
+        dr.eval(bvh_closest.d)
+        print(dr.mean(bvh_closest.d))
+        bvh_time = time.time() - bvh_start
+
+        # Calculate performance metrics
+        results = {
+            "baseline_total_time": baseline_time,
+            "baseline_avg_time": (baseline_time * 1000) / num_points,  # ms per point
+            "bvh_total_time": bvh_time,
+            "bvh_avg_time": (bvh_time * 1000) / num_points,  # ms per point
+            "speedup": baseline_time / bvh_time if bvh_time > 0 else float('inf'),
+            "num_points": num_points
+        }
+
+        return results
+
     def add_closest_point_visualization(
         self,
         initial_position: Optional[np.ndarray] = None,
@@ -37,6 +178,7 @@ class ClosestPointMeshVisualizer(MeshViewer):
         normal_line_color: Tuple[float, float, float] = (0.0, 0.8, 0.8),
         normal_line_width: float = 0.001,
         normal_line_length: float = 0.1,
+        show_normal_line: bool = True,
         # Distance sphere options
         distance_sphere_name: str = "distance_sphere",
         distance_sphere_color: Tuple[float, float,
@@ -47,7 +189,7 @@ class ClosestPointMeshVisualizer(MeshViewer):
         # UI options
         window_title: str = "Query Point Controls",
         window_width: int = 380,
-        window_height: int = 420,
+        window_height: int = 520,
         show_closest_info: bool = True,
         use_bvh: bool = False,
     ) -> Tuple[Any, np.ndarray, Any, Any]:
@@ -76,6 +218,7 @@ class ClosestPointMeshVisualizer(MeshViewer):
             normal_line_color: RGB color tuple for the normal line
             normal_line_width: Width of the normal line
             normal_line_length: Length of the normal line
+            show_normal_line: Whether to show the normal line visualization
 
             distance_sphere_name: Name for the distance sphere structure
             distance_sphere_color: RGB color tuple for the distance sphere
@@ -158,20 +301,22 @@ class ClosestPointMeshVisualizer(MeshViewer):
             width=line_width
         )
 
-        # Create a line for the normal at the closest point
-        normal_vec = np.array([
-            closest_record.n.x.numpy(),
-            closest_record.n.y.numpy(),
-            closest_record.n.z.numpy()
-        ]).T * normal_line_length
+        # Create a line for the normal at the closest point (if enabled)
+        normal_line = None
+        if show_normal_line:
+            normal_vec = np.array([
+                closest_record.n.x.numpy(),
+                closest_record.n.y.numpy(),
+                closest_record.n.z.numpy()
+            ]).T * normal_line_length
 
-        normal_line = self.add_polyline(
-            points=np.vstack(
-                [closest_point_pos, closest_point_pos + normal_vec]),
-            name=normal_line_name,
-            color=normal_line_color,
-            width=normal_line_width
-        )
+            normal_line = self.add_polyline(
+                points=np.vstack(
+                    [closest_point_pos, closest_point_pos + normal_vec]),
+                name=normal_line_name,
+                color=normal_line_color,
+                width=normal_line_width
+            )
 
         # Create a sphere visualization for the distance
         distance_sphere = None
@@ -218,10 +363,19 @@ class ClosestPointMeshVisualizer(MeshViewer):
         window_pos = np.array([self.window_size[0] - window_width - 20, 30])
         first_frame = True
 
+        # Performance test variables
+        test_num_points = 10000
+        baseline_results = None
+        bvh_results = None
+        is_running_baseline_test = False
+        is_running_bvh_test = False
+
         # Define the callback function for the GUI
         def closest_point_gui_callback():
             nonlocal query_point_pos, closest_point_pos, window_pos, first_frame
             nonlocal closest_record, current_use_bvh, last_query_time
+            nonlocal test_num_points, baseline_results, bvh_results
+            nonlocal is_running_baseline_test, is_running_bvh_test
 
             # Only set the window position on the first frame to avoid jitter
             if first_frame:
@@ -252,7 +406,118 @@ class ClosestPointMeshVisualizer(MeshViewer):
                 ps.imgui.Spacing()
                 ps.imgui.Separator()
 
+                # Performance testing section
+                ps.imgui.TextColored((1.0, 0.2, 0.6, 1.0),
+                                     "Performance Testing")
+                ps.imgui.Spacing()
+
+                # Number of points slider
+                _, test_num_points = ps.imgui.SliderInt("Number of Points",
+                                                      test_num_points,
+                                                      1000,
+                                                      100000)
+                ps.imgui.Spacing()
+
+                # Run test buttons - side by side
+                is_running_any_test = is_running_baseline_test or is_running_bvh_test
+
+                if not is_running_any_test:
+                    ps.imgui.BeginGroup()
+                    # Baseline test button
+                    if ps.imgui.Button("Test Brute Force", (150, 30)):
+                        is_running_baseline_test = True
+                        ps.info(
+                            f"Starting brute force test with {test_num_points} points...")
+                        baseline_results = self._run_baseline_test(
+                            test_num_points, min_bounds, max_bounds)
+                        is_running_baseline_test = False
+                        ps.info("Brute force test completed!")
+
+                    ps.imgui.SameLine()
+
+                    # BVH test button
+                    if ps.imgui.Button("Test BVH", (150, 30)):
+                        is_running_bvh_test = True
+                        ps.info(
+                            f"Starting BVH test with {test_num_points} points...")
+                        bvh_results = self._run_bvh_test(
+                            test_num_points, min_bounds, max_bounds)
+                        is_running_bvh_test = False
+                        ps.info("BVH test completed!")
+                    ps.imgui.EndGroup()
+
+                else:
+                    # Show that test is running
+                    if is_running_baseline_test:
+                        ps.imgui.Text("Running baseline test... please wait")
+                    if is_running_bvh_test:
+                        ps.imgui.Text("Running BVH test... please wait")
+
+                ps.imgui.Spacing()
+
+                # Display individual test results
+                ps.imgui.Separator()
+                ps.imgui.TextColored((1.0, 0.8, 0.2, 1.0), "Test Results")
+                ps.imgui.Spacing()
+
+                # Display baseline results if available
+                if baseline_results is not None:
+                    ps.imgui.TextColored(
+                        (1.0, 0.6, 0.4, 1.0), "Baseline Method:")
+                    ps.imgui.Text(
+                        f"  Number of points: {baseline_results['num_points']}")
+                    ps.imgui.Text(
+                        f"  Total time: {baseline_results['total_time']:.3f} seconds")
+                    ps.imgui.Text(
+                        f"  Average per point: {baseline_results['avg_time']:.3f} ms")
+                    ps.imgui.Spacing()
+
+                # Display BVH results if available
+                if bvh_results is not None:
+                    ps.imgui.TextColored((0.4, 0.8, 1.0, 1.0), "BVH Method:")
+                    ps.imgui.Text(
+                        f"  Number of points: {bvh_results['num_points']}")
+                    ps.imgui.Text(
+                        f"  Total time: {bvh_results['total_time']:.3f} seconds")
+                    ps.imgui.Text(
+                        f"  Average per point: {bvh_results['avg_time']:.3f} ms")
+                    ps.imgui.Spacing()
+
+                # Display comparison if both results are available
+                if baseline_results is not None and bvh_results is not None:
+                    ps.imgui.Separator()
+                    ps.imgui.TextColored(
+                        (0.2, 1.0, 0.6, 1.0), "Performance Comparison")
+                    ps.imgui.Spacing()
+
+                    # Calculate speedup
+                    speedup = baseline_results['total_time'] / \
+                        bvh_results['total_time'] if bvh_results['total_time'] > 0 else float(
+                            'inf')
+
+                    # Highlight the speedup
+                    if speedup > 1.0:
+                        ps.imgui.TextColored((0.0, 1.0, 0.0, 1.0),
+                                             f"BVH is {speedup:.2f}x faster than baseline")
+                    else:
+                        ps.imgui.TextColored((1.0, 0.5, 0.0, 1.0),
+                                             f"Baseline is {1.0/speedup:.2f}x faster than BVH")
+
+                    # Additional stats
+                    speedup_percent = (
+                        speedup - 1.0) * 100 if speedup > 1.0 else (1.0 - 1.0/speedup) * 100
+                    ps.imgui.Text(
+                        f"Performance improvement: {abs(speedup_percent):.1f}%")
+
+                    # Time difference
+                    time_diff = abs(
+                        baseline_results['total_time'] - bvh_results['total_time'])
+                    ps.imgui.Text(f"Time saved: {time_diff:.3f} seconds")
+
+                ps.imgui.Separator()
+
                 # Position sliders section
+                ps.imgui.TextColored((0.8, 0.4, 1.0, 1.0), "Position Controls")
                 changed_x, query_point_pos[0] = ps.imgui.SliderFloat("X Position",
                                                                      query_point_pos[0],
                                                                      min_bounds[0],
@@ -299,7 +564,8 @@ class ClosestPointMeshVisualizer(MeshViewer):
                         distance_sphere,
                         normal_line_length,
                         sphere_resolution,
-                        show_distance_sphere
+                        show_distance_sphere,
+                        show_normal_line
                     )
 
                 # Display the current coordinates
@@ -348,7 +614,8 @@ class ClosestPointMeshVisualizer(MeshViewer):
                         distance_sphere,
                         normal_line_length,
                         sphere_resolution,
-                        show_distance_sphere
+                        show_distance_sphere,
+                        show_normal_line
                     )
 
                 # Show closest point information if enabled
@@ -396,11 +663,12 @@ class ClosestPointMeshVisualizer(MeshViewer):
         query_point,
         closest_point,
         connection_line,
-        normal_line,
+        normal_line=None,
         distance_sphere=None,
         normal_line_length=0.1,
         sphere_resolution=20,
-        show_distance_sphere=True
+        show_distance_sphere=True,
+        show_normal_line=True
     ):
         """Update all visualization elements for a closest point query on a mesh."""
         # Extract the closest point position as numpy array
@@ -409,13 +677,6 @@ class ClosestPointMeshVisualizer(MeshViewer):
             closest_record.p.y.numpy(),
             closest_record.p.z.numpy()
         ]).T
-
-        # Extract the normal at the closest point
-        normal_vec = np.array([
-            closest_record.n.x.numpy(),
-            closest_record.n.y.numpy(),
-            closest_record.n.z.numpy()
-        ]).T * normal_line_length
 
         # Update the query and closest points
         query_point.update_point_positions(np.array([query_point_pos]))
@@ -426,10 +687,17 @@ class ClosestPointMeshVisualizer(MeshViewer):
             np.vstack([query_point_pos, closest_point_pos])
         )
 
-        # Update the normal line
-        normal_line.update_node_positions(
-            np.vstack([closest_point_pos, closest_point_pos + normal_vec])
-        )
+        # Update the normal line if it exists and is enabled
+        if show_normal_line and normal_line is not None:
+            normal_vec = np.array([
+                closest_record.n.x.numpy(),
+                closest_record.n.y.numpy(),
+                closest_record.n.z.numpy()
+            ]).T * normal_line_length
+
+            normal_line.update_node_positions(
+                np.vstack([closest_point_pos, closest_point_pos + normal_vec])
+            )
 
         # Update the distance sphere if enabled
         if show_distance_sphere and distance_sphere is not None:
@@ -465,7 +733,7 @@ def run_closest_point_mesh_demo():
     Run a demonstration of the closest point visualization feature for meshes.
     """
     # Load a 3D mesh (adjust path as needed)
-    vertices, faces = load_obj_3d(BASE_DIR / "data/bunny.obj")
+    vertices, faces = load_obj_3d(BASE_DIR / "data/bunny_hi.obj")
 
     # Create the mesh object
     mesh = Mesh(Array3(vertices.T), Array3i(faces.T))
@@ -491,9 +759,10 @@ def run_closest_point_mesh_demo():
         normal_line_color=(0.0, 0.8, 0.8),
         normal_line_width=0.002,
         normal_line_length=0.1,
+        show_normal_line=False,  # Don't show normal line
         show_closest_info=True,
         # Enable distance sphere visualization with transparency
-        show_distance_sphere=True,
+        show_distance_sphere=False,
         # Added alpha value for transparency
         distance_sphere_color=(0.9, 0.5, 0.5, 0.3),
         distance_sphere_material="wax",  # The "wax" material supports transparency

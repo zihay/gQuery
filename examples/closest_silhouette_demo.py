@@ -412,7 +412,7 @@ def run_silhouette_point_demo(shape_type="star"):
         # Create a star-shaped polyline
         # vertices, indices = create_star_shape(
         #     n_points=8, inner_radius=0.3, outer_radius=1.0)
-        vertices, indices = load_obj_2d(BASE_DIR / "data/workpiece.obj")
+        vertices, indices = load_obj_2d(BASE_DIR / "data/bunny2d.obj")
         polyline = Polyline(Array2(vertices.T), Array2i(indices.T))
     elif shape_type == "file":
         # Create a polyline from a text file
@@ -430,7 +430,7 @@ def run_silhouette_point_demo(shape_type="star"):
             polyline = Polyline(Array2(vertices.T), Array2i(indices.T))
     else:  # "obj"
         # Create a polyline from an OBJ file
-        vertices, indices = load_obj_2d(BASE_DIR / "data/workpiece.obj")
+        vertices, indices = load_obj_2d(BASE_DIR / "data/bunny2d.obj")
         polyline = Polyline(Array2(vertices.T), Array2i(indices.T))
 
     # Create a polyline viewer

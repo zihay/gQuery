@@ -369,7 +369,7 @@ def run_closest_point_demo():
     Run a demonstration of the closest point visualization feature.
     """
     # Create an example polyline (spiral, star, or rectangle)
-    vertices, indices = load_obj_2d(BASE_DIR / "data/workpiece.obj")
+    vertices, indices = load_obj_2d(BASE_DIR / "data/bunny2d.obj")
     polyline = Polyline(Array2(vertices.T), Array2i(indices.T))
 
     # Create a polyline viewer

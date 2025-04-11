@@ -497,7 +497,7 @@ def run_ray_intersection_demo():
     Run a demonstration of the ray intersection visualization feature.
     """
     # Create a polyline from an example shape file
-    vertices, indices = load_obj_2d(BASE_DIR / "data/workpiece.obj")
+    vertices, indices = load_obj_2d(BASE_DIR / "data/bunny2d.obj")
     # vertices, indices = make_cube()
     polyline = Polyline(Array2(vertices.T), Array2i(indices.T))
 
