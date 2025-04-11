@@ -8,10 +8,9 @@
 
 ## Overview
 
-**gQuery** is a high-performance Python library built with [DrJit](https://github.com/mitsuba-renderer/drjit), designed to efficiently handle geometry queries in both 2D and 3D using Bounding Volume Hierarchies (BVH) and Spatialized Normal Cone Hierarchies (SNCH). It provides fast, accurate solutions tailored for computer graphics and computational geometry applications.
+**gQuery** is a high-performance Python library powered by [DrJit](https://github.com/mitsuba-renderer/drjit) that delivers fast, efficient 2D and 3D geometry queries. Leveraging advanced data structures like Bounding Volume Hierarchies (BVH) and Spatialized Normal Cone Hierarchies (SNCH), it provides optimized solutions for graphics, simulation, and computational geometry applications.
 
-The acceleration structures (BVH and SNCH) are built on the CPU, while traversal can be performed efficiently on either CPU or GPU, providing flexibility for different computational resources and use cases.
-Leveraging DrJit's parallel execution capabilities on both CPU and GPU, gQuery significantly accelerates spatial queries, enabling real-time and interactive workflows in computer graphics, simulations, and more.
+The library builds acceleration structures on CPU while supporting query traversal on both CPU and GPU, utilizing DrJit's parallel computation capabilities for exceptional performance across hardware platforms.
 
 ### Supported Queries
 
