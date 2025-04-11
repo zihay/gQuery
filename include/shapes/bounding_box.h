@@ -8,36 +8,34 @@ namespace gquery {
 
 template <size_t DIM>
 struct BoundingBox {
-    using Vector = Eigen::Matrix<Float, DIM, 1>;
-
-    BoundingBox() : p_min(Vector::Constant(FLT_MAX)), p_max(Vector::Constant(-FLT_MAX)) {}
-    BoundingBox(const Vector &p) {
-        Vector eps = Vector::Constant(Epsilon);
-        p_min      = p - eps;
-        p_max      = p + eps;
+    BoundingBox() : p_min(Vector<DIM>::Constant(FLT_MAX)), p_max(Vector<DIM>::Constant(-FLT_MAX)) {}
+    BoundingBox(const Vector<DIM> &p) {
+        Vector<DIM> eps = Vector<DIM>::Constant(Epsilon);
+        p_min           = p - eps;
+        p_max           = p + eps;
     }
-    BoundingBox(const Vector &p_min, const Vector &p_max) : p_min(p_min), p_max(p_max) {}
+    BoundingBox(const Vector<DIM> &p_min, const Vector<DIM> &p_max) : p_min(p_min), p_max(p_max) {}
 
     Float width() const { return p_max[0] - p_min[0]; }
     Float height() const { return p_max[1] - p_min[1]; }
 
-    void expand(const Vector &p) {
-        Vector eps = Vector::Constant(Epsilon);
-        p_min      = p_min.cwiseMin(p - eps);
-        p_max      = p_max.cwiseMax(p + eps);
+    void expand(const Vector<DIM> &p) {
+        Vector<DIM> eps = Vector<DIM>::Constant(Epsilon);
+        p_min           = p_min.cwiseMin(p - eps);
+        p_max           = p_max.cwiseMax(p + eps);
     }
 
-    void expand(const BoundingBox &box) {
+    void expand(const BoundingBox<DIM> &box) {
         p_min = p_min.cwiseMin(box.p_min);
         p_max = p_max.cwiseMax(box.p_max);
     }
 
-    Vector extent() const { return p_max - p_min; }
-    Vector centroid() const { return (p_min + p_max) * 0.5f; }
+    Vector<DIM> extent() const { return p_max - p_min; }
+    Vector<DIM> centroid() const { return (p_min + p_max) * 0.5f; }
 
     // Calculates perimeter for 2D and surface area for 3D
     Float surface_area() const {
-        Vector ext = extent();
+        Vector<DIM> ext = extent();
         if constexpr (DIM == 2) {
             // For 2D, return perimeter
             return 2 * (ext[0] + ext[1]);
@@ -57,9 +55,9 @@ struct BoundingBox {
         return index;
     }
 
-    Vector offset(const Vector &p) const {
-        Vector ext = extent();
-        ext        = ext.cwiseMax(Epsilon);
+    Vector<DIM> offset(const Vector<DIM> &p) const {
+        Vector<DIM> ext = extent();
+        ext             = ext.cwiseMax(Epsilon);
         return (p - p_min).cwiseQuotient(ext);
     }
 
@@ -69,8 +67,8 @@ struct BoundingBox {
         return ss.str();
     }
 
-    Vector p_min;
-    Vector p_max;
+    Vector<DIM> p_min;
+    Vector<DIM> p_max;
 };
 
 template <size_t DIM>

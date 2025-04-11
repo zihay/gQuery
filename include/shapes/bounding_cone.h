@@ -12,11 +12,10 @@ namespace gquery {
 
 template <size_t DIM>
 struct BoundingCone {
-    using Vector      = Eigen::Matrix<Float, DIM, 1>;
     using BoundingBox = BoundingBox<DIM>;
 
-    BoundingCone() : axis(Vector::Zero()), half_angle(M_PI), radius(0.f) {}
-    BoundingCone(const Vector &axis, Float half_angle, Float radius)
+    BoundingCone() : axis(Vector<DIM>::Zero()), half_angle(M_PI), radius(0.f) {}
+    BoundingCone(const Vector<DIM> &axis, Float half_angle, Float radius)
         : axis(axis), half_angle(half_angle), radius(radius) {}
 
     std::string __repr__() const {
@@ -25,9 +24,9 @@ struct BoundingCone {
         return ss.str();
     }
 
-    Vector axis;
-    Float  half_angle;
-    Float  radius;
+    Vector<DIM> axis;
+    Float       half_angle;
+    Float       radius;
 };
 
 template <size_t DIM>

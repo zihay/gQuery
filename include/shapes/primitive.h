@@ -6,26 +6,25 @@ namespace gquery {
 
 /**
  * @brief Common interface for primitives of different dimensions.
- * 
+ *
  * This provides a CRTP-based interface for primitive types like LineSegment (2D)
  * and Triangle (3D) to ensure they have consistent functionality.
  */
 template <size_t DIM, typename Derived>
 struct Primitive {
-    using Vector = Vector<DIM>;
     using BoundingBoxType = BoundingBox<DIM>;
-    
+
     // Index for identifying the primitive
     int index;
-    
+
     // Get bounding box (implemented by derived class)
     BoundingBoxType bounding_box() const {
-        return static_cast<const Derived*>(this)->bounding_box();
+        return static_cast<const Derived *>(this)->bounding_box();
     }
-    
+
     // Get centroid (implemented by derived class)
-    Vector centroid() const {
-        return static_cast<const Derived*>(this)->centroid();
+    Vector<DIM> centroid() const {
+        return static_cast<const Derived *>(this)->centroid();
     }
 };
 

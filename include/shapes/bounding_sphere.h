@@ -6,13 +6,11 @@ namespace gquery {
 
 template <size_t DIM>
 struct BoundingSphere {
-    using Vector = Eigen::Matrix<Float, DIM, 1>;
+    BoundingSphere() : center(Vector<DIM>::Zero()), radius(0.f) {}
+    BoundingSphere(const Vector<DIM> &center, Float radius) : center(center), radius(radius) {}
 
-    BoundingSphere() : center(Vector::Zero()), radius(0.f) {}
-    BoundingSphere(const Vector &center, Float radius) : center(center), radius(radius) {}
-
-    Vector center;
-    Float  radius;
+    Vector<DIM> center;
+    Float       radius;
 };
 
 template <size_t DIM>

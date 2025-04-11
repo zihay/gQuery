@@ -6,9 +6,8 @@
 namespace gquery {
 
 struct LineSegment : public Primitive<2, LineSegment> {
-    using Vector = Vector2;
-    Vector a;
-    Vector b;
+    Vector2  a;
+    Vector2  b;
     Vector2i indices;
 
     BoundingBox<2> bounding_box() const {
@@ -18,7 +17,7 @@ struct LineSegment : public Primitive<2, LineSegment> {
         return box;
     }
 
-    Vector centroid() const {
+    Vector2 centroid() const {
         return (a + b) * 0.5f;
     }
 
