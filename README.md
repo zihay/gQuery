@@ -89,12 +89,6 @@ pip install -e .
 pip install git+https://github.com/zihay/gquery.git
 ```
 
-### Build Requirements
-
-Installing from source requires:
-- C++ compiler with C++20 support
-- CMake 3.15 or newer
-- Eigen3 library
 
 ## Usage Examples
 ### Working with 2D Polylines
