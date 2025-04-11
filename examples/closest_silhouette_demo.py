@@ -376,13 +376,6 @@ class SilhouettePointVisualizer(PolylineViewer):
                             ps.imgui.Text(
                                 f"Try increasing the maximum search distance")
 
-                # Show tips for the user
-                ps.imgui.Separator()
-                ps.imgui.TextColored((0.8, 0.8, 0.4, 1.0),
-                                     "Tip: You can drag this window")
-                ps.imgui.TextColored((0.8, 0.8, 0.4, 1.0),
-                                     "if it's occluding other UI elements")
-
             ps.imgui.End()
 
         # Register the GUI callback

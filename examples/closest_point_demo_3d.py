@@ -381,14 +381,6 @@ class ClosestPointMeshVisualizer(MeshViewer):
                     ps.imgui.Text(f"Query Time: {last_query_time:.3f} ms")
                     ps.imgui.Text(
                         f"Method: {'BVH' if current_use_bvh else 'Baseline'}")
-
-                # Show tips for the user
-                ps.imgui.Separator()
-                ps.imgui.TextColored((0.8, 0.8, 0.4, 1.0),
-                                     "Tip: You can drag this window")
-                ps.imgui.TextColored((0.8, 0.8, 0.4, 1.0),
-                                     "if it's occluding other UI elements")
-
             ps.imgui.End()
 
         # Register the GUI callback
