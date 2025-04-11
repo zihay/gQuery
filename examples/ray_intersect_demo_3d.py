@@ -636,13 +636,7 @@ def run_ray_intersection_mesh_demo():
         # Show information about the intersection
         show_intersection_info=True
     )
-
-    # Set up the camera for a good view of the bunny
-    viewer.set_up_camera(
-        camera_position=np.array([0, 0.1, 0.5]),
-        look_at=np.array([0, 0, 0])
-    )
-
+    
     # Show the visualization
     viewer.show()
 
