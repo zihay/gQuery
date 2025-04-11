@@ -88,6 +88,7 @@ include_directories(include)
 # Core library
 add_library(gquery-core STATIC
   src/core/parallel.cpp
+  src/shapes/silhouette_edge.cpp
   src/shapes/bvh.cpp
   src/shapes/snch.cpp
   src/util/log.cpp

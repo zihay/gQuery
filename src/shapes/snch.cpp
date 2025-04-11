@@ -1,8 +1,10 @@
 #include <shapes/snch.h>
+#include <util/check.h>
 
 #include <span>
 #include <unordered_map>
 #include <unordered_set>
+#include <iostream>
 
 namespace gquery {
 
@@ -59,14 +61,20 @@ void SNCH<DIM>::build() {
                         }
                     }
                 } else {
+                    CHECK(primitive_idx < BVH<DIM>::m_ordered_prims.size());
                     Triangle &primitive = BVH<DIM>::m_ordered_prims[primitive_idx];
                     for (size_t k = 0; k < 3; ++k) {
                         size_t i0 = primitive.indices[k];
                         size_t i1 = primitive.indices[(k + 1) % 3];
                         if (i0 > i1)
                             std::swap(i0, i1);
-                        auto            edge       = std::make_pair(i0, i1);
+                        auto edge = std::make_pair(i0, i1);
+
+                        CHECK(m_edge_map.find(edge) != m_edge_map.end());
+
                         size_t          edge_idx   = m_edge_map[edge];
+
+                        CHECK(edge_idx < m_silhouettes.size());
                         SilhouetteEdge &silhouette = m_silhouettes[edge_idx];
                         if (visited_silhouettes.insert(edge_idx).second) {
                             m_ordered_silhouettes.push_back(silhouette);
@@ -104,7 +112,7 @@ void SNCH<DIM>::build_recursive(size_t start, size_t end) {
         // node is a leaf node
         for (size_t j = 0; j < node.n_silhouettes; ++j) {
             int   idx        = node.silhouette_offset + j;
-            auto &silhouette = m_silhouettes[idx];
+            auto &silhouette = m_ordered_silhouettes[idx];
             root.cone.axis += silhouette.normal();
             // TODO: need to check
             root.cone.radius = std::max(root.cone.radius, (silhouette.centroid() - centroid).norm());
@@ -127,7 +135,7 @@ void SNCH<DIM>::build_recursive(size_t start, size_t end) {
                 // node is a leaf node
                 for (size_t j = 0; j < node.n_silhouettes; ++j) {
                     int         idx        = node.silhouette_offset + j;
-                    auto       &silhouette = m_silhouettes[idx];
+                    auto       &silhouette = m_ordered_silhouettes[idx];
                     Vector<DIM> n0         = silhouette.normal_0();
                     Vector<DIM> n1         = silhouette.normal_1();
                     Float       angle0     = std::acos(std::clamp(root.cone.axis.dot(n0), -1.f, 1.f));
