@@ -13,10 +13,11 @@
 #include <shapes/bounding_box.h>
 #include <shapes/line_segment.h>
 #include <shapes/triangle.h>
+#include <util/span.h>
 
 #include <atomic>
 #include <memory_resource>
-#include <span>
+// #include <span>
 #include <vector>
 
 namespace gquery {
@@ -39,10 +40,8 @@ struct SoABVH;
  */
 template <size_t DIM>
 struct BVHPrimitive {
-    using BoundingBox = BoundingBox<DIM>;
-
-    size_t      primitive_index; ///< Index in the original primitive collection
-    BoundingBox bounding_box;    ///< Axis-aligned bounding box of the primitive
+    size_t           primitive_index; ///< Index in the original primitive collection
+    BoundingBox<DIM> bounding_box;    ///< Axis-aligned bounding box of the primitive
 };
 
 template <size_t DIM>
@@ -79,8 +78,6 @@ struct BVHNode {
  */
 template <size_t DIM>
 struct BVHBuildNode {
-    using BoundingBox = BoundingBox<DIM>;
-
     /**
      * @brief Initializes a leaf node with the given parameters.
      *
@@ -88,7 +85,7 @@ struct BVHBuildNode {
      * @param n The number of primitives in this node
      * @param box The bounding box of the primitives in this node
      */
-    void init_leaf(int first, int n, const BoundingBox &box) {
+    void init_leaf(int first, int n, const BoundingBox<DIM> &box) {
         first_prim_offset = first;
         n_primitives      = n;
         this->box         = box;
@@ -101,12 +98,12 @@ struct BVHBuildNode {
         this->left       = left;
         this->right      = right;
         n_primitives     = 0;
-        box              = BoundingBox();
+        box              = BoundingBox<DIM>();
         box.expand(left->box);
         box.expand(right->box);
     }
 
-    BoundingBox        box;               ///< Axis-aligned bounding box containing all primitives in this node
+    BoundingBox<DIM>   box;               ///< Axis-aligned bounding box containing all primitives in this node
     BVHBuildNode<DIM> *left;              ///< Left child (nullptr for leaf nodes)
     BVHBuildNode<DIM> *right;             ///< Right child (nullptr for leaf nodes)
     int                split_axis;        ///< Axis to split on
@@ -145,7 +142,6 @@ template <size_t DIM>
 class BVH {
 public:
     using PrimitiveT       = typename gquery::PrimitiveType<DIM>::Type;
-    using BoundingBoxType  = BoundingBox<DIM>;
     using VectorType       = Vector<DIM>;
     using BVHNodeType      = BVHNode<DIM>;
     using BVHBuildNodeType = BVHBuildNode<DIM>;
@@ -183,11 +179,11 @@ public:
      * @param ordered_prims Vector of primitives being reordered for cache-friendly traversal
      * @return Pointer to the root of the constructed subtree
      */
-    BVHBuildNodeType *build_recursive(ThreadLocal<Allocator>     &thread_allocators,
-                                      std::span<BVHPrimitiveType> primitives,
-                                      std::atomic<int>           &total_nodes,
-                                      std::atomic<int>           &ordered_prims_offset,
-                                      std::vector<PrimitiveT>    &ordered_prims);
+    BVHBuildNodeType *build_recursive(ThreadLocal<Allocator>  &thread_allocators,
+                                      span<BVHPrimitiveType>   primitives,
+                                      std::atomic<int>        &total_nodes,
+                                      std::atomic<int>        &ordered_prims_offset,
+                                      std::vector<PrimitiveT> &ordered_prims);
 
     int flatten_bvh(BVHBuildNodeType *node, int *offset);
 

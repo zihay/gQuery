@@ -1,5 +1,6 @@
 #include <shapes/bvh.h>
 #include <util/check.h>
+#include <util/span.h>
 
 #include <iostream>
 #include <memory_resource>
@@ -23,16 +24,15 @@ struct SplitResult {
 template <size_t DIM>
 class SAHSplitMethod {
 public:
-    using BoundingBox      = BoundingBox<DIM>;
     using BVHPrimitiveType = BVHPrimitive<DIM>;
 
-    SplitResult find_best_split(const std::span<BVHPrimitiveType> bvh_primitives) {
-        BoundingBox box;
+    SplitResult find_best_split(const span<BVHPrimitiveType> bvh_primitives) {
+        BoundingBox<DIM> box;
         for (const auto &prim : bvh_primitives) {
             box.expand(prim.bounding_box);
         }
 
-        BoundingBox centroids_box;
+        BoundingBox<DIM> centroids_box;
         for (const auto &prim : bvh_primitives) {
             centroids_box.expand(prim.bounding_box.centroid());
         }
@@ -57,8 +57,8 @@ public:
         Float         costs[n_splits] = {}; // costs for splitting after each bucket
 
         // Partially initialize costs using a forward scan
-        int         count_below = 0;
-        BoundingBox box_below;
+        int              count_below = 0;
+        BoundingBox<DIM> box_below;
         for (int i = 0; i < n_splits; ++i) {
             box_below.expand(buckets[i].box);
             count_below += buckets[i].count;
@@ -66,8 +66,8 @@ public:
         }
 
         // Finish initializing costs using a backward scan
-        int         count_above = 0;
-        BoundingBox box_above;
+        int              count_above = 0;
+        BoundingBox<DIM> box_above;
         for (int i = n_splits - 1; i >= 0; --i) {
             box_above.expand(buckets[i + 1].box);
             count_above += buckets[i + 1].count;
@@ -163,7 +163,7 @@ void BVH<DIM>::build() {
     std::atomic<int>  total_nodes{ 0 };
 
     std::atomic<int> ordered_prims_offset{ 0 };
-    root = build_recursive(thread_allocators, std::span<BVHPrimitiveType>(bvh_primitives),
+    root = build_recursive(thread_allocators, span<BVHPrimitiveType>(bvh_primitives),
                            total_nodes, ordered_prims_offset, ordered_prims);
     CHECK_EQ(ordered_prims_offset.load(), ordered_prims.size());
     m_ordered_prims = std::move(ordered_prims);
@@ -180,18 +180,18 @@ void BVH<DIM>::build() {
 // Implementation of BVH::build_recursive
 template <size_t DIM>
 typename BVH<DIM>::BVHBuildNodeType *BVH<DIM>::build_recursive(
-    ThreadLocal<Allocator>     &thread_allocators,
-    std::span<BVHPrimitiveType> bvh_primitives,
-    std::atomic<int>           &total_nodes,
-    std::atomic<int>           &ordered_prims_offset,
-    std::vector<PrimitiveT>    &ordered_prims) {
+    ThreadLocal<Allocator>  &thread_allocators,
+    span<BVHPrimitiveType>   bvh_primitives,
+    std::atomic<int>        &total_nodes,
+    std::atomic<int>        &ordered_prims_offset,
+    std::vector<PrimitiveT> &ordered_prims) {
     DCHECK_GT(bvh_primitives.size(), 0);
     Allocator         alloc = thread_allocators.Get();
     BVHBuildNodeType *node  = alloc.new_object<BVHBuildNodeType>();
     ++total_nodes;
 
     // Compute bounds of all primitives in BVH node
-    BoundingBoxType box;
+    BoundingBox<DIM> box;
     for (const auto &prim : bvh_primitives) {
         box.expand(prim.bounding_box);
     }
@@ -209,7 +209,7 @@ typename BVH<DIM>::BVHBuildNodeType *BVH<DIM>::build_recursive(
     }
 
     // Compute bound of primitive centroids and choose split dimension
-    BoundingBoxType centroid_box;
+    BoundingBox<DIM> centroid_box;
     for (const auto &prim : bvh_primitives) {
         centroid_box.expand(prim.bounding_box.centroid());
     }

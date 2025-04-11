@@ -2,18 +2,17 @@
 
 #include <core/fwd.h>
 #include <shapes/bounding_box.h>
+#include <util/span.h>
 
 #include <atomic>
 #include <memory_resource>
-#include <span>
+// #include <span>
 #include <vector>
 
 namespace gquery {
 
 template <size_t DIM>
 struct BoundingCone {
-    using BoundingBox = BoundingBox<DIM>;
-
     BoundingCone() : axis(Vector<DIM>::Zero()), half_angle(M_PI), radius(0.f) {}
     BoundingCone(const Vector<DIM> &axis, Float half_angle, Float radius)
         : axis(axis), half_angle(half_angle), radius(radius) {}

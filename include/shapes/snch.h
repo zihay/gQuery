@@ -7,10 +7,11 @@
 #include <shapes/bvh.h>
 #include <shapes/silhouette_edge.h>
 #include <shapes/silhouette_vertex.h>
+#include <util/span.h>
 
 #include <atomic>
 #include <memory_resource>
-#include <span>
+// #include <span>
 #include <vector>
 
 namespace gquery {

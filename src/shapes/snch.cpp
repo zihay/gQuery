@@ -1,7 +1,7 @@
 #include <shapes/snch.h>
 #include <util/check.h>
 
-#include <span>
+#include <util/span.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <iostream>
