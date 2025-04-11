@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from typing import Tuple
 from gquery.core.fwd import *
+from gquery.core.math import closest_point_line_segment, closest_point_triangle, ray_triangle_intersect
 from gquery.shapes.bvh import TraversalStack
 from gquery.shapes.primitive import BoundarySamplingRecord3D, ClosestPointRecord3D, Intersection3D
 from gquery.shapes.triangle import Triangle, Triangles
@@ -95,11 +96,7 @@ class BVH3D:
     def closest_point(self, p: Array3):
         p = Array3(p)
         r_max = Float(dr.inf)
-        its = ClosestPointRecord3D(p=Array3(0, 0, 0),
-                                   n=Array3(0, 0, 0),
-                                   uv=Array2(0, 0),
-                                   d=Float(dr.inf),
-                                   prim_id=Int(-1))
+        idx = Int(-1)
         stack_ptr = dr.zeros(Int, dr.width(p))
         stack = dr.alloc_local(TraversalStack, 64)
         stack[0] = TraversalStack(index=Int(0), distance=Float(r_max))
@@ -116,10 +113,11 @@ class BVH3D:
                     while j < node.n_references:
                         reference_index = node.reference_offset + j
                         prim = self.primitives[reference_index]
-                        _its = prim.closest_point(p)
-                        if _its.d < its.d:
-                            its = _its
-                            r_max = dr.minimum(r_max, its.d)
+                        _p, _uv, _d = closest_point_triangle(
+                            p, prim.a, prim.b, prim.c)
+                        if _d < r_max:
+                            r_max = _d
+                            idx = reference_index
                         j += 1
                 else:
                     node_left = self.flat_tree[node_index + 1]
@@ -156,12 +154,19 @@ class BVH3D:
                         stack_ptr += 1
                         stack[UInt(stack_ptr)] = TraversalStack(index=node_index + node.second_child_offset,
                                                                 distance=d_min_right)
-        return its
+        c_rec = dr.zeros(ClosestPointRecord3D)
+        if idx >= 0:
+            prim = self.primitives[idx]
+            c_rec = prim.closest_point(p)
+        return c_rec
 
     @dr.syntax
     def intersect(self, x: Array3, v: Array3, r_max: Float = Float(dr.inf)):
         its = dr.zeros(Intersection3D)
         root_node = self.flat_tree[0]
+        
+        idx = Int(-1)
+        
         hit, t_min, t_max = root_node.box.intersect(x, v, r_max)
         if hit:
             stack = dr.alloc_local(TraversalStack, 64)
@@ -173,17 +178,16 @@ class BVH3D:
                 curr_dist = stack_node.distance
                 stack_ptr -= 1
                 if curr_dist <= r_max:
-                    # prune curr_dist > r_max
                     node = self.flat_tree[node_index]
                     if node.is_leaf():
                         j = Int(0)
                         while j < node.n_references:
                             reference_index = node.reference_offset + j
                             prim = self.primitives[reference_index]
-                            _its = prim.ray_intersect(x, v, r_max)
-                            if _its.valid & (_its.d < r_max):
-                                r_max = its.d
-                                its = _its
+                            _d = ray_triangle_intersect(x, v, prim.a, prim.b, prim.c)
+                            if _d < r_max:
+                                r_max = _d
+                                idx = reference_index
                             j += 1
                     else:
                         left_box = self.flat_tree[node_index + 1].box
@@ -213,6 +217,11 @@ class BVH3D:
                             stack_ptr += 1
                             stack[UInt(stack_ptr)] = TraversalStack(
                                 index=node_index + node.second_child_offset, distance=t_min1)
+        
+        if idx >= 0:
+            prim = self.primitives[idx]
+            its = prim.ray_intersect(x, v, r_max)
+        
         return its
 
     @dr.syntax

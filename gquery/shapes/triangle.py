@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from core.fwd import *
-from core.math import closest_point_triangle
-from shapes.primitive import BoundarySamplingRecord3D, ClosestPointRecord3D, Intersection3D
+from gquery.core.fwd import *
+from gquery.core.math import closest_point_triangle
+from gquery.shapes.primitive import BoundarySamplingRecord3D, ClosestPointRecord3D, Intersection3D
 
 
 @dataclass
@@ -46,7 +46,7 @@ class Triangle:
         return d <= R
 
     @dr.syntax
-    def ray_intersect(self, x: Array2, d: Array2, r_max: Float):
+    def ray_intersect(self, x: Array3, d: Array3, r_max: Float):
         its = dr.zeros(Intersection3D)
         v1 = self.b - self.a
         v2 = self.c - self.a
@@ -68,17 +68,17 @@ class Triangle:
                             n=dr.normalize(dr.cross(v1, v2)),
                             uv=Array2(1. - v - w, v),
                             d=t,
-                            prim_id=self.sorted_index,
-                            on_boundary=Bool(True),
-                            type=self.type)
+                            prim_id=self.index,
+                            on_boundary=Bool(True))
         return its
 
     @dr.syntax
-    def closest_point(self, p: Array2):
+    def closest_point(self, p: Array3):
         pt, uv, d = closest_point_triangle(p, self.a, self.b, self.c)
         return ClosestPointRecord3D(
+            valid=Bool(True),
             p=pt, n=self.normal(), uv=uv, d=d,
-            prim_id=self.index, type=self.type)
+            prim_id=self.index)
 
     @dr.syntax
     def is_inside_circle(self, c: Array3, r: Float):

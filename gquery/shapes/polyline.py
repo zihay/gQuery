@@ -104,17 +104,20 @@ class Polyline:
                 d_min = d
                 idx = i
             i += 1
-        f = dr.gather(Array2i, self._indices, idx)
-        a = dr.gather(Array2, self._vertices, f.x)
-        b = dr.gather(Array2, self._vertices, f.y)
-        pa = p - a
-        ba = b - a
-        h = dr.clip(dr.dot(pa, ba) / dr.dot(ba, ba), 0., 1.)
-        n = dr.normalize(Array2(ba.y, -ba.x))
-        return ClosestPointRecord(
-            valid=Bool(True),
-            p=dr.lerp(a, b, h),
-            n=n,
-            t=h,
-            d=d_min,
-            prim_id=idx)
+        c_rec = dr.zeros(ClosestPointRecord)
+        if idx != -1:
+            f = dr.gather(Array2i, self._indices, idx)
+            a = dr.gather(Array2, self._vertices, f.x)
+            b = dr.gather(Array2, self._vertices, f.y)
+            pa = p - a
+            ba = b - a
+            h = dr.clip(dr.dot(pa, ba) / dr.dot(ba, ba), 0., 1.)
+            n = dr.normalize(Array2(ba.y, -ba.x))
+            c_rec = ClosestPointRecord(
+                valid=Bool(True),
+                p=dr.lerp(a, b, h),
+                n=n,
+                t=h,
+                d=d_min,
+                prim_id=idx)
+        return c_rec

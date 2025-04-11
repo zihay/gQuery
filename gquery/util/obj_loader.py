@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def load_obj_2d(file_path):
+def load_obj_2d(file_path, normalize=False):
     """
     Load a 2D shape from an OBJ file.
 
@@ -38,16 +38,17 @@ def load_obj_2d(file_path):
                 # OBJ indices start from 1, so subtract 1
                 if len(parts) >= 3:  # Need at least 2 vertices for a line
                     indices = [int(p) - 1 for p in parts[1:]]
-                    
+
                     # Create edges for the line segments
                     for i in range(len(indices) - 1):
                         edges.append((indices[i], indices[i+1]))
 
     # Convert to numpy arrays
     vertices = np.array(vertices)
+    edges = np.array(edges)
 
     # Normalize vertices
-    if len(vertices) > 0:
+    if normalize and len(vertices) > 0:
         center = np.mean(vertices, axis=0)
         vertices -= center
         scale = np.max(np.abs(vertices)) if np.max(
@@ -55,15 +56,15 @@ def load_obj_2d(file_path):
         vertices /= scale
 
     # Remove duplicate edges
-    if len(edges) > 0:
-        edges = np.array(edges)
-        edges = np.sort(edges, axis=1)  # Sort edge vertices
-        edges = np.unique(edges, axis=0)  # Remove duplicates
+    # if len(edges) > 0:
+    #     edges = np.array(edges)
+    #     edges = np.sort(edges, axis=1)  # Sort edge vertices
+    #     edges = np.unique(edges, axis=0)  # Remove duplicates
 
     return vertices, edges
 
 
-def load_obj_3d(file_path, normalize=True):
+def load_obj_3d(file_path, normalize=False):
     """
     Load a 3D mesh from an OBJ file.
 
@@ -95,6 +96,7 @@ def load_obj_3d(file_path, normalize=True):
 
     # Convert to numpy arrays
     vertices = np.array(vertices)
+    faces = np.array(faces)
 
     # Normalize the model
     if normalize and len(vertices) > 0:
@@ -104,10 +106,10 @@ def load_obj_3d(file_path, normalize=True):
             np.abs(vertices)) > 0 else 1.0
         vertices /= scale
 
-    # Remove duplicate face indices
-    if len(faces) > 0:
-        faces = np.array(faces)
-        faces = np.sort(faces, axis=1)  # Sort face vertices
-        faces = np.unique(faces, axis=0)  # Remove duplicates
+    # # Remove duplicate face indices
+    # if len(faces) > 0:
+    #     faces = np.array(faces)
+    #     faces = np.sort(faces, axis=1)  # Sort face vertices
+    #     faces = np.unique(faces, axis=0)  # Remove duplicates
 
     return vertices, faces
