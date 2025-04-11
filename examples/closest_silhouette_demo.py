@@ -8,10 +8,10 @@ silhouette point (a vertex where two edges meet) on the polyline in real-time.
 """
 
 import numpy as np
-from diff_wost.shapes.polyline import Polyline
-from diff_wost.core.fwd import BASE_DIR, Array2, Array2i, Float
-from diff_wost.utils.obj_loader import load_obj_2d
-from visualization.polyline_viewer import PolylineViewer
+from examples.polyline_viewer import PolylineViewer
+from gquery.shapes.polyline import Polyline
+from gquery.core.fwd import *
+from gquery.util.obj_loader import load_obj_2d
 from typing import Optional, Tuple, Any
 import time
 import polyscope as ps
@@ -110,8 +110,13 @@ class SilhouettePointVisualizer(PolylineViewer):
         query_array = self._position_to_array2(query_point_pos)
 
         start_time = time.time()
-        silhouette_record = self.polyline.closest_silhouette(
-            query_array, Float(current_max_distance), use_snch=current_use_snch)
+        if current_use_snch:
+            silhouette_record = self.polyline.closest_silhouette_snch(
+                query_array, Float(current_max_distance))
+        else:
+            silhouette_record = self.polyline.closest_silhouette_baseline(
+                query_array, Float(current_max_distance))
+        dr.eval(silhouette_record)
         last_query_time = (time.time() - start_time) * \
             1000  # Convert to milliseconds
 
@@ -233,8 +238,13 @@ class SilhouettePointVisualizer(PolylineViewer):
                     query_array = self._position_to_array2(query_point_pos)
 
                     start_time = time.time()
-                    silhouette_record = self.polyline.closest_silhouette(
-                        query_array, Float(current_max_distance), use_snch=current_use_snch)
+                    if current_use_snch:
+                        silhouette_record = self.polyline.closest_silhouette_snch(
+                            query_array, Float(current_max_distance))
+                    else:
+                        silhouette_record = self.polyline.closest_silhouette_baseline(
+                            query_array, Float(current_max_distance))
+                    dr.eval(silhouette_record)
                     last_query_time = (time.time() - start_time) * 1000
 
                     # Check if the record is valid
@@ -281,8 +291,13 @@ class SilhouettePointVisualizer(PolylineViewer):
                     query_array = self._position_to_array2(query_point_pos)
 
                     start_time = time.time()
-                    silhouette_record = self.polyline.closest_silhouette(
-                        query_array, Float(current_max_distance), use_snch=current_use_snch)
+                    if current_use_snch:
+                        silhouette_record = self.polyline.closest_silhouette_snch(
+                            query_array, Float(current_max_distance))
+                    else:
+                        silhouette_record = self.polyline.closest_silhouette_baseline(
+                            query_array, Float(current_max_distance))
+                    dr.eval(silhouette_record)
                     last_query_time = (time.time() - start_time) * 1000
 
                     # Check if the record is valid

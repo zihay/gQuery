@@ -46,10 +46,10 @@ class SilhouetteVertex:
         if (self.indices[0] != -1) & (self.indices[2] != -1):
             if d < r_max:
                 if self.is_silhouette_vertex(x):
-                    c_rec = ClosestSilhouettePointRecord(valid=Bool(True),
-                                                         p=p,
-                                                         d=d,
-                                                         prim_id=self.prim_id)
+                    c_rec.valid = Bool(True)
+                    c_rec.p = p
+                    c_rec.d = d
+                    c_rec.prim_id = self.prim_id
         return c_rec
 
 
@@ -58,6 +58,22 @@ class SilhouetteVertices:
 
     def __init__(self, data: Float):
         self.data = data
+
+    @staticmethod
+    def from_soa(silhouettes: SilhouetteVertex):
+        index = dr.arange(Int, dr.width(silhouettes))
+        data = dr.zeros(Float, 10 * dr.width(silhouettes))
+        dr.scatter(data, silhouettes.a.x, index * 10 + 0)
+        dr.scatter(data, silhouettes.a.y, index * 10 + 1)
+        dr.scatter(data, silhouettes.b.x, index * 10 + 2)
+        dr.scatter(data, silhouettes.b.y, index * 10 + 3)
+        dr.scatter(data, silhouettes.c.x, index * 10 + 4)
+        dr.scatter(data, silhouettes.c.y, index * 10 + 5)
+        dr.scatter(data, Float(silhouettes.indices.x), index * 10 + 6)
+        dr.scatter(data, Float(silhouettes.indices.y), index * 10 + 7)
+        dr.scatter(data, Float(silhouettes.indices.z), index * 10 + 8)
+        dr.scatter(data, Float(silhouettes.index), index * 10 + 9)
+        return SilhouetteVertices(data)
 
     def __getitem__(self, index: Int):
         return SilhouetteVertex(
@@ -72,3 +88,6 @@ class SilhouetteVertices:
                             Int(dr.gather(Float, self.data, 10 * index + 8))),
             index=Int(dr.gather(Float, self.data, 10 * index + 9)),
             prim_id=Int(dr.gather(Float, self.data, 10 * index + 9)))
+
+    def size(self):
+        return dr.width(self.data) // 10
