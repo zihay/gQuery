@@ -63,6 +63,12 @@ struct BoundingBox {
         return (p - p_min).cwiseQuotient(ext);
     }
 
+    std::string __repr__() const {
+        std::stringstream ss;
+        ss << "BoundingBox(p_min=[" << p_min.transpose() << "], p_max=[" << p_max.transpose() << "])";
+        return ss.str();
+    }
+
     Vector p_min;
     Vector p_max;
 };

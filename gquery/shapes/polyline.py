@@ -1,61 +1,83 @@
-from core.fwd import *
-from shapes.bvh import BVH
-from shapes.line_segment import LineSegment
-from shapes.primitive import Intersection
-from shapes.snch import SNCH
+from gquery.core.fwd import *
+from gquery.core.math import ray_intersection
+from gquery.shapes.bvh import BVH
+from gquery.shapes.line_segment import LineSegment
+from gquery.shapes.primitive import Intersection
+from gquery.shapes.snch import SNCH
 
 
 class Polyline:
-    vertices: Array2
-    indices: Array2i
+    _vertices: Float  # flattened array of vertices
+    _indices: Int  # flattened array of indices
 
     bvh: BVH
     snch: SNCH
 
-    def init(self, vertices: Array2, indices: Array2i):
-        self.vertices = vertices
-        self.indices = indices
+    def __init__(self, vertices: Array2, indices: Array2i):
+        self.bvh = BVH(vertices, indices)
+        self.snch = SNCH(vertices, indices)
 
-        self.bvh = BVH(self.vertices, self.indices)
-        self.snch = SNCH(self.vertices, self.indices)
+        self._vertices = vertices
+        self._indices = indices
+
+        self._vertices = dr.zeros(Float, 2 * dr.width(vertices))
+        self._indices = dr.zeros(Int, 2 * dr.width(indices))
+
+        dr.scatter(self._vertices, vertices,
+                   dr.arange(Int, dr.width(vertices)))
+        dr.scatter(self._indices, indices, dr.arange(Int, dr.width(indices)))
+
+    @property
+    def vertices(self):
+        return dr.gather(Array2, self._vertices, dr.arange(Int, dr.width(self._vertices) // 2))
+
+    @property
+    def indices(self):
+        return dr.gather(Array2i, self._indices, dr.arange(Int, dr.width(self._indices) // 2))
 
     @dr.syntax
     def intersect(self, p: Array2, v: Array2,
                   n: Array2 = Array2(0., 0.),
                   on_boundary: Bool = Bool(False),
                   r_max: Float = Float(dr.inf)):
-        return self.intersect_baseline(p, v, n, on_boundary, r_max)
+        p = dr.select(on_boundary, p - 1e-5 * n, p)
+        return self.intersect_baseline(p, v, r_max)
 
     @dr.syntax
     def intersect_bvh(self, p: Array2, v: Array2,
-                      n: Array2 = Array2(0., 0.),
-                      on_boundary: Bool = Bool(False),
                       r_max: Float = Float(dr.inf)):
-        pass
+        return self.bvh.intersect(p, v, r_max)
 
     @dr.syntax
     def intersect_baseline(self, p: Array2, v: Array2,
-                           n: Array2 = Array2(0., 0.),
-                           on_boundary: Bool = Bool(False),
                            r_max: Float = Float(dr.inf)):
-        # brute force
         its = dr.zeros(Intersection)
         d_min = Float(r_max)
         idx = Int(-1)
+        is_hit = Bool(False)
         i = Int(0)
         while i < dr.width(self.indices):
-            f = dr.gather(Array2, self.vertices, i)
-            a = dr.gather(Array2, self.vertices, f.x)
-            b = dr.gather(Array2, self.vertices, f.y)
-            _its = LineSegment(a, b, i).ray_intersect(p, v, r_max)
-            if _its.valid & (_its.d < d_min):
+            f = dr.gather(Array2i, self._indices, i)
+            a = dr.gather(Array2, self._vertices, f.x)
+            b = dr.gather(Array2, self._vertices, f.y)
+            d = ray_intersection(p, v, a, b)
+            if d < d_min:
+                d_min = d
                 idx = i
-                d_min = _its.d
+                is_hit = Bool(True)
             i += 1
 
-        if idx != -1:
-            f = dr.gather(Array2, self.vertices, idx)
-            a = dr.gather(Array2, self.vertices, f.x)
-            b = dr.gather(Array2, self.vertices, f.y)
-            its = LineSegment(a, b, idx).ray_intersect(p, v, r_max)
+        if is_hit:
+            f = dr.gather(Array2i, self._indices, idx)
+            a = dr.gather(Array2, self._vertices, f.x)
+            b = dr.gather(Array2, self._vertices, f.y)
+            ab = dr.normalize(b - a)
+            n = Array2(ab[1], -ab[0])
+            its.valid = Bool(True)
+            its.p = p + v * d_min
+            its.n = n
+            its.t = Float(-1.)
+            its.d = d_min
+            its.prim_id = idx
+            its.on_boundary = Bool(True)
         return its

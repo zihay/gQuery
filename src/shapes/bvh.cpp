@@ -1,6 +1,7 @@
 #include <shapes/bvh.h>
 #include <util/check.h>
 
+#include <iostream>
 #include <memory_resource>
 
 namespace gquery {
@@ -101,27 +102,29 @@ BVH<DIM>::BVH(const std::vector<Vector<DIM>>  &vertices,
     if constexpr (DIM == 2) {
         // 2D case - LineSegment construction
         for (int i = 0; i < indices.size(); ++i) {
-            auto        index = indices[i];
-            auto        v0    = vertices[index[0]];
-            auto        v1    = vertices[index[1]];
+            auto        face = indices[i];
+            auto        v0   = vertices[face[0]];
+            auto        v1   = vertices[face[1]];
             LineSegment line_segment;
-            line_segment.index = i;
-            line_segment.a     = v0;
-            line_segment.b     = v1;
+            line_segment.index   = i;
+            line_segment.a       = v0;
+            line_segment.b       = v1;
+            line_segment.indices = face;
             m_primitives.push_back(line_segment);
         }
     } else if constexpr (DIM == 3) {
         // 3D case - Triangle construction
         for (int i = 0; i < indices.size(); ++i) {
-            auto     index = indices[i];
-            auto     v0    = vertices[index[0]];
-            auto     v1    = vertices[index[1]];
-            auto     v2    = vertices[index[2]];
+            auto     face = indices[i];
+            auto     v0   = vertices[face[0]];
+            auto     v1   = vertices[face[1]];
+            auto     v2   = vertices[face[2]];
             Triangle triangle;
-            triangle.index = i;
-            triangle.a     = v0;
-            triangle.b     = v1;
-            triangle.c     = v2;
+            triangle.index   = i;
+            triangle.a       = v0;
+            triangle.b       = v1;
+            triangle.c       = v2;
+            triangle.indices = face;
             m_primitives.push_back(triangle);
         }
     }
@@ -316,20 +319,22 @@ int BVH<DIM>::flatten_bvh(BVHBuildNodeType *node, int *offset) {
         linear_node->axis         = node->split_axis;
         linear_node->n_primitives = 0;
         flatten_bvh(node->left, offset);
-        linear_node->secondChildOffset = flatten_bvh(node->right, offset);
+        // TODO: improve this
+        size_t second_child_offset     = flatten_bvh(node->right, offset);
+        linear_node->secondChildOffset = second_child_offset - my_offset;
     }
     return my_offset;
 }
 
 template <size_t DIM>
 ArrayX BVH<DIM>::primitive_data() const {
-    if (m_primitives.empty()) {
+    if (m_ordered_prims.empty()) {
         return ArrayX();
     }
-    size_t segment_size = m_primitives[0].flatten().size();
-    ArrayX ret(m_primitives.size() * segment_size);
-    for (size_t i = 0; i < m_primitives.size(); ++i) {
-        ret.segment(i * segment_size, segment_size) = m_primitives[i].flatten();
+    size_t segment_size = m_ordered_prims[0].flatten().size();
+    ArrayX ret(m_ordered_prims.size() * segment_size);
+    for (size_t i = 0; i < m_ordered_prims.size(); ++i) {
+        ret.segment(i * segment_size, segment_size) = m_ordered_prims[i].flatten();
     }
     return ret;
 }

@@ -9,6 +9,7 @@ struct Triangle : public Primitive<3, Triangle> {
     Vector3 a;
     Vector3 b;
     Vector3 c;
+    Vector3i indices;
 
     BoundingBox<3> bounding_box() const {
         BoundingBox<3> box;

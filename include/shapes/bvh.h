@@ -62,6 +62,12 @@ struct BVHNode {
         ret << box.p_min, box.p_max, Float(primitivesOffset), Float(secondChildOffset), Float(n_primitives);
         return ret;
     }
+
+    std::string __repr__() const {
+        std::stringstream ss;
+        ss << "BVHNode(box=" << box.__repr__() << ", primitivesOffset=" << primitivesOffset << ", secondChildOffset=" << secondChildOffset << ", n_primitives=" << n_primitives << ", axis=" << axis << ")";
+        return ss.str();
+    }
 };
 
 /**

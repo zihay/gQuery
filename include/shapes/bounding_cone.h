@@ -1,7 +1,7 @@
 #pragma once
 
-#include <shapes/bounding_box.h>
 #include <core/fwd.h>
+#include <shapes/bounding_box.h>
 
 #include <atomic>
 #include <memory_resource>
@@ -18,6 +18,12 @@ struct BoundingCone {
     BoundingCone() : axis(Vector::Zero()), half_angle(M_PI), radius(0.f) {}
     BoundingCone(const Vector &axis, Float half_angle, Float radius)
         : axis(axis), half_angle(half_angle), radius(radius) {}
+
+    std::string __repr__() const {
+        std::stringstream ss;
+        ss << "BoundingCone(axis=[" << axis.transpose() << "], half_angle=" << half_angle << ", radius=" << radius << ")";
+        return ss.str();
+    }
 
     Vector axis;
     Float  half_angle;

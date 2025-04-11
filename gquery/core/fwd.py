@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from drjit.auto.ad import TensorXf as Tensor
 from drjit.auto.ad import PCG32
@@ -18,3 +19,6 @@ from drjit.auto.ad import Float32 as Float
 from drjit.auto.ad import TensorXf
 from drjit.auto.ad import TensorXi
 import drjit as dr
+
+
+BASE_DIR = Path(__file__).parent.parent.parent

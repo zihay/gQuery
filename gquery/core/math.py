@@ -1,4 +1,4 @@
-from core.fwd import *
+from gquery.core.fwd import *
 
 
 @dr.syntax
@@ -26,3 +26,14 @@ def project_to_plane(n: Array2, e: Array2):
     b = Array2(-n[1], n[0])
     r = dr.dot(e, dr.abs(b))
     return dr.abs(r)
+
+
+@dr.syntax
+def ray_intersection(x: Array2, v: Array2, a: Array2, b: Array2) -> Float:
+    u = b - a
+    w = x - a
+    d = cross(v, u)
+    s = cross(v, w) / d
+    t = cross(u, w) / d
+    valid = (t > 0.) & (s >= 0.) & (s <= 1.)
+    return dr.select(valid, t, dr.inf)

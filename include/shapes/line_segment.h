@@ -9,6 +9,7 @@ struct LineSegment : public Primitive<2, LineSegment> {
     using Vector = Vector2;
     Vector a;
     Vector b;
+    Vector2i indices;
 
     BoundingBox<2> bounding_box() const {
         BoundingBox<2> box;

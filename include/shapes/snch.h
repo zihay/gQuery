@@ -26,16 +26,24 @@ struct SNCHBuildNode {
     int               n_primitives;      ///< Number of primitives (0 for interior nodes)
 };
 
+// Custom hash function for std::pair<size_t, size_t>
+struct PairHash {
+    std::size_t operator()(const std::pair<size_t, size_t> &p) const {
+        // Combine the hash of both elements using a simple but effective hash combination technique
+        return std::hash<size_t>{}(p.first) ^ (std::hash<size_t>{}(p.second) << 1);
+    }
+};
+
 template <size_t DIM>
 struct SNCHNode {
     BoundingBox<DIM>  box;
     BoundingCone<DIM> cone;
 
     size_t primitives_offset;   // leaf node
-    size_t second_child_offset; // interior node
-    size_t n_primitives;        // number of primitives
+    size_t second_child_offset; // offset to the second child node from the current node index
+    size_t n_primitives;        // number of primitives, 0 for interior nodes
 
-    size_t silhouette_offset; // 0 if interior node
+    size_t silhouette_offset; // 0 if interior node, offset to the first silhouette in the silhouette vector
     size_t n_silhouettes;     // number of silhouettes
 
     bool is_leaf() const { return n_primitives > 0; }
@@ -46,6 +54,12 @@ struct SNCHNode {
             Float(primitives_offset), Float(second_child_offset), Float(n_primitives),
             Float(silhouette_offset), Float(n_silhouettes);
         return ret;
+    }
+
+    std::string __repr__() const {
+        std::stringstream ss;
+        ss << "SNCHNode(box=" << box.__repr__() << ", cone=" << cone.__repr__() << ")";
+        return ss.str();
     }
 };
 
@@ -69,8 +83,10 @@ public:
     ArrayX node_data() const;
 
 public:
-    std::vector<SilhouetteType> m_silhouettes;
-    std::vector<SNCHNode<DIM>>  m_nodes; ///< Flattened SNCH nodes
+    std::unordered_map<std::pair<size_t, size_t>, size_t, PairHash> m_edge_map;            // map from a pair of vertex indices to the edge index
+    std::vector<SilhouetteType>                                     m_silhouettes;         // raw silhouettes for each vertex(2D) or edge(3D)
+    std::vector<SilhouetteType>                                     m_ordered_silhouettes; // could contain duplicates
+    std::vector<SNCHNode<DIM>>                                      m_nodes;               ///< Flattened SNCH nodes
 };
 
 } // namespace gquery

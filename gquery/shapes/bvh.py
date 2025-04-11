@@ -1,6 +1,8 @@
 import numpy as np
+from examples.visualizer import add_rectangle, clear_rectangles
 from gquery.core.fwd import *
 from dataclasses import dataclass
+from gquery.core.math import ray_intersection
 from gquery.shapes.line_segment import LineSegment, LineSegments
 from gquery.shapes.primitive import BoundarySamplingRecord, ClosestPointRecord, Intersection
 
@@ -80,8 +82,8 @@ class BVHNodes:
     def __init__(self, data: Float):
         self.data = data
 
-    def __getitem__(self, index):
-        return BVHNode(
+        index = dr.arange(Int, dr.width(self.data) // 7)
+        self.SoA = BVHNode(
             box=BoundingBox(p_min=Array2(dr.gather(Float, self.data, 7 * index + 0),
                                          dr.gather(Float, self.data, 7 * index + 1)),
                             p_max=Array2(dr.gather(Float, self.data, 7 * index + 2),
@@ -90,6 +92,21 @@ class BVHNodes:
             second_child_offset=Int(
                 dr.gather(Float, self.data, 7 * index + 5)),
             n_references=Int(dr.gather(Float, self.data, 7 * index + 6)))
+
+    def __getitem__(self, index):
+        return dr.gather(BVHNode, self.SoA, index)
+        # return BVHNode(
+        #     box=BoundingBox(p_min=Array2(dr.gather(Float, self.data, 7 * index + 0),
+        #                                  dr.gather(Float, self.data, 7 * index + 1)),
+        #                     p_max=Array2(dr.gather(Float, self.data, 7 * index + 2),
+        #                                  dr.gather(Float, self.data, 7 * index + 3))),
+        #     reference_offset=Int(dr.gather(Float, self.data, 7 * index + 4)),
+        #     second_child_offset=Int(
+        #         dr.gather(Float, self.data, 7 * index + 5)),
+        #     n_references=Int(dr.gather(Float, self.data, 7 * index + 6)))
+
+    def size(self):
+        return dr.width(self.data) // 7
 
 
 @dataclass
@@ -185,6 +202,11 @@ class BVH:
         its = dr.zeros(Intersection)
         root_node = self.flat_tree[0]
         hit, t_min, t_max = root_node.box.intersect(x, v, r_max)
+
+        d_min = Float(r_max)
+        idx = Int(-1)
+        is_hit = Bool(False)
+
         if hit:
             stack = dr.alloc_local(TraversalStack, 64)
             stack_ptr = dr.zeros(Int, dr.width(x))
@@ -195,29 +217,32 @@ class BVH:
                 node_index = stack_node.index
                 curr_dist = stack_node.distance
                 stack_ptr -= 1
+
                 if curr_dist <= r_max:
-                    # prune curr_dist > r_max
                     node = self.flat_tree[node_index]
                     if node.is_leaf():
                         j = Int(0)
                         while j < node.n_references:
                             reference_index = node.reference_offset + j
-                            prim = dr.gather(LineSegment, self.primitives,
-                                             reference_index)
-                            _its = prim.ray_intersect(x, v, r_max)
-                            if _its.valid & (_its.d < r_max):
-                                r_max = its.d
-                                its = _its
+                            prim = self.primitives[reference_index]
+                            d = ray_intersection(x, v, prim.a, prim.b)
+                            if d < d_min:
+                                d_min = d
+                                idx = reference_index
+                                is_hit = Bool(True)
                             j += 1
                     else:
                         left_box = self.flat_tree[node_index + 1].box
                         right_box = self.flat_tree[node_index +
                                                    node.second_child_offset].box
+
                         hit0, t_min0, t_max0 = left_box.intersect(x, v, r_max)
                         hit1, t_min1, t_max1 = right_box.intersect(x, v, r_max)
+
                         if hit0 & hit1:
                             closer = node_index + 1
                             other = node_index + node.second_child_offset
+
                             if t_min1 < t_min0:  # swap to make sure left is closer
                                 closer, other = other, closer
                                 t_min0, t_min1 = t_min1, t_min0
@@ -238,109 +263,14 @@ class BVH:
                             stack[UInt(stack_ptr)] = TraversalStack(
                                 index=node_index + node.second_child_offset,
                                 distance=t_min1)
+
+        if is_hit:
+            its.valid = Bool(True)
+            its.p = x + v * d_min
+            its.n = self.primitives[idx].normal()
+            its.t = Float(-1.)
+            its.d = d_min
+            its.prim_id = self.primitives[idx].index
+            its.on_boundary = Bool(True)
+
         return its
-
-    @dr.syntax
-    def branch_traversal_weight(self, x: Array2, R: Float,
-                                p: Array2):
-        # return dr.abs(GreensBallDirichlet(c=x, R=R).G(x, p))
-        return Float(1.)
-
-    @dr.syntax
-    def sample_boundary(self, x: Array2, R: Float, sampler: PCG32):
-        b_rec = dr.zeros(BoundarySamplingRecord)
-        hit = Bool(False)
-        pdf = Float(1.)
-        sorted_prim_id = Int(-1)
-        root_node = self.flat_tree[0]
-        overlap, d_min, d_max = root_node.box.overlaps(x, R)
-        if overlap:
-            hit, sorted_prim_id, pdf = self._sample_boundary(x, R, sampler)
-        if hit:
-            prim = dr.gather(LineSegment, self.primitives, sorted_prim_id)
-            p, _pdf, t = prim.sample_point(sampler)
-            b_rec = BoundarySamplingRecord(p=p,
-                                           n=prim.normal(),
-                                           t=t,
-                                           pdf=pdf * _pdf,
-                                           pmf=pdf,
-                                           prim_id=prim.index,
-                                           type=prim.type)
-        return hit, b_rec
-
-    @dr.syntax
-    def _sample_boundary(self, x: Array2, R: Float,
-                         sampler: PCG32, r_max: Float = Float(dr.inf)):
-        # a single root to leaf traversal
-        d_max0 = Float(dr.inf)
-        d_max1 = Float(dr.inf)
-
-        hit = Bool(False)
-        pdf = Float(1.)
-        prim_id = Int(-1)
-        sorted_prim_id = Int(-1)
-
-        stack_ptr = dr.zeros(Int, dr.width(x))
-        node_index = Int(0)
-        while stack_ptr >= 0:
-            node = self.flat_tree[node_index]
-            stack_ptr -= 1
-
-            if node.is_leaf():
-                # terminate at leaf node
-                total_primitive_weight = Float(0.)
-                # traverse all primitives in the leaf node
-                j = Int(0)
-                while j < node.n_references:
-                    reference_index = node.reference_offset + j
-                    prim = dr.gather(LineSegment, self.primitives,
-                                     reference_index)
-                    surface_area = prim.surface_area()
-                    if (r_max <= R) | prim.sphere_intersect(x, R):  # all primitives are visible or hit
-                        hit = Bool(True)
-                        total_primitive_weight += surface_area
-                        selection_prob = surface_area / total_primitive_weight
-                        u = sampler.next_float32()
-                        if u < selection_prob:  # select primitive
-                            prim_id = prim.index
-                            sorted_prim_id = prim.sorted_index
-                    j += 1
-                if total_primitive_weight > 0:
-                    prim = dr.gather(LineSegment, self.primitives,
-                                     sorted_prim_id)
-                    surface_area = prim.surface_area()
-                    pdf *= surface_area / total_primitive_weight
-            else:
-                box0 = self.flat_tree[node_index + 1].box
-                overlap0, d_min0, d_max0 = box0.overlaps(x, R)
-                weight0 = dr.select(overlap0, 1., 0.)
-
-                box1 = self.flat_tree[node_index +
-                                      node.second_child_offset].box
-                overlap1, d_min1, d_max1 = box1.overlaps(x, R)
-                weight1 = dr.select(overlap1, 1., 0.)
-
-                if weight0 > 0:
-                    weight0 *= self.branch_traversal_weight(
-                        x, R, box0.centroid())
-
-                if weight1 > 0:
-                    weight1 *= self.branch_traversal_weight(
-                        x, R, box1.centroid())
-
-                total_weight = weight0 + weight1
-                if total_weight > 0:
-                    stack_ptr += 1  # push a node
-                    traversal_prob0 = weight0 / total_weight
-                    traversal_prob1 = 1. - traversal_prob0
-                    u = sampler.next_float32()
-                    if u < traversal_prob0:
-                        node_index = node_index + 1  # jump to left child
-                        pdf *= traversal_prob0
-                        r_max = d_max0
-                    else:
-                        node_index = node_index + node.second_child_offset  # jump to right child
-                        pdf *= traversal_prob1
-                        r_max = d_max1
-
-        return hit, sorted_prim_id, pdf

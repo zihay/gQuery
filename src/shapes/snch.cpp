@@ -2,16 +2,9 @@
 
 #include <span>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace gquery {
-
-// Custom hash function for std::pair<size_t, size_t>
-struct PairHash {
-    std::size_t operator()(const std::pair<size_t, size_t> &p) const {
-        // Combine the hash of both elements using a simple but effective hash combination technique
-        return std::hash<size_t>{}(p.first) ^ (std::hash<size_t>{}(p.second) << 1);
-    }
-};
 
 template <size_t DIM>
 SNCH<DIM>::SNCH(const std::vector<Vector<DIM>> &vertices, const std::vector<Vectori<DIM>> &indices,
@@ -41,17 +34,54 @@ void SNCH<DIM>::build() {
 
         // Copy the number of primitives
         snch_node.n_primitives = bvh_node.n_primitives;
-        // TODO: need to compute the silhouette number if we filter the silhouettes
-        snch_node.n_silhouettes = bvh_node.n_primitives;
-        // Copy the union values
         if (bvh_node.n_primitives > 0) {
             // Leaf node
             snch_node.primitives_offset = bvh_node.primitivesOffset;
-            // TODO: need to compute the silhouette offset if we filter the silhouettes
-            snch_node.silhouette_offset = bvh_node.primitivesOffset;
         } else {
             // Interior node
             snch_node.second_child_offset = bvh_node.secondChildOffset;
+        }
+
+        // handle the silhouettes
+        if (bvh_node.n_primitives > 0) { // leaf node
+            size_t                     start = m_ordered_silhouettes.size();
+            std::unordered_set<size_t> visited_silhouettes;
+
+            for (size_t j = 0; j < bvh_node.n_primitives; ++j) {
+                size_t primitive_idx = bvh_node.primitivesOffset + j;
+                if constexpr (DIM == 2) {
+                    LineSegment &primitive = BVH<DIM>::m_ordered_prims[primitive_idx];
+                    for (size_t k = 0; k < 2; ++k) {
+                        size_t            vertex_idx = primitive.indices[k];
+                        SilhouetteVertex &silhouette = m_silhouettes[vertex_idx];
+                        if (visited_silhouettes.insert(vertex_idx).second) {
+                            m_ordered_silhouettes.push_back(silhouette);
+                        }
+                    }
+                } else {
+                    Triangle &primitive = BVH<DIM>::m_ordered_prims[primitive_idx];
+                    for (size_t k = 0; k < 3; ++k) {
+                        size_t i0 = primitive.indices[k];
+                        size_t i1 = primitive.indices[(k + 1) % 3];
+                        if (i0 > i1)
+                            std::swap(i0, i1);
+                        auto            edge       = std::make_pair(i0, i1);
+                        size_t          edge_idx   = m_edge_map[edge];
+                        SilhouetteEdge &silhouette = m_silhouettes[edge_idx];
+                        if (visited_silhouettes.insert(edge_idx).second) {
+                            m_ordered_silhouettes.push_back(silhouette);
+                        }
+                    }
+                }
+            }
+
+            size_t end = m_ordered_silhouettes.size();
+
+            snch_node.n_silhouettes     = end - start;
+            snch_node.silhouette_offset = start;
+        } else {
+            snch_node.n_silhouettes     = 0;
+            snch_node.silhouette_offset = 0;
         }
     }
 
@@ -109,8 +139,9 @@ void SNCH<DIM>::build_recursive(size_t start, size_t end) {
     }
 
     if (!root.is_leaf()) {
+        // TODO: improve this
         build_recursive(start + 1, root.second_child_offset);
-        build_recursive(root.second_child_offset, end);
+        build_recursive(start + root.second_child_offset, end);
     }
 }
 
@@ -120,9 +151,9 @@ void SNCH<2>::build_silhouettes(const std::vector<Vector<2>>  &vertices,
     m_silhouettes.clear();
     m_silhouettes.resize(vertices.size());
     // for each edge
-    for (const auto &index : indices) {
-        size_t i0 = index[0];
-        size_t i1 = index[1];
+    for (const auto &face : indices) {
+        size_t i0 = face[0];
+        size_t i1 = face[1];
         auto   v0 = vertices[i0];
         auto   v1 = vertices[i1];
 
@@ -147,8 +178,7 @@ void SNCH<2>::build_silhouettes(const std::vector<Vector<2>>  &vertices,
 template <>
 void SNCH<3>::build_silhouettes(const std::vector<Vector<3>>  &vertices,
                                 const std::vector<Vectori<3>> &indices) {
-    // map from a pair of vertex indices to the edge index
-    std::unordered_map<std::pair<size_t, size_t>, size_t, PairHash> edge_map;
+    m_edge_map.clear();
 
     size_t n_edges = 0;
     for (size_t i = 0; i < indices.size(); ++i) {
@@ -160,8 +190,8 @@ void SNCH<3>::build_silhouettes(const std::vector<Vector<3>>  &vertices,
                 std::swap(i0, i1);
             auto edge = std::make_pair(i0, i1);
             // if the edge is not in the map, add it
-            if (edge_map.find(edge) == edge_map.end()) {
-                edge_map[edge] = n_edges++;
+            if (m_edge_map.find(edge) == m_edge_map.end()) {
+                m_edge_map[edge] = n_edges++;
             }
         }
     }
@@ -187,7 +217,7 @@ void SNCH<3>::build_silhouettes(const std::vector<Vector<3>>  &vertices,
             }
             auto edge = std::make_pair(i0, i1);
 
-            size_t edge_index = edge_map[edge];
+            size_t edge_index = m_edge_map[edge];
             // update the silhouette
             SilhouetteEdge &silhouette                 = m_silhouettes[edge_index];
             silhouette.m_vertices[1]                   = v0;
@@ -209,13 +239,13 @@ ArrayX SNCH<DIM>::primitive_data() const {
 
 template <size_t DIM>
 ArrayX SNCH<DIM>::silhouette_data() const {
-    if (m_silhouettes.empty()) {
+    if (m_ordered_silhouettes.empty()) {
         return ArrayX();
     }
-    size_t segment_size = m_silhouettes[0].flatten().size();
-    ArrayX ret(m_silhouettes.size() * segment_size);
-    for (size_t i = 0; i < m_silhouettes.size(); ++i) {
-        ret.segment(i * segment_size, segment_size) = m_silhouettes[i].flatten();
+    size_t segment_size = m_ordered_silhouettes[0].flatten().size();
+    ArrayX ret(m_ordered_silhouettes.size() * segment_size);
+    for (size_t i = 0; i < m_ordered_silhouettes.size(); ++i) {
+        ret.segment(i * segment_size, segment_size) = m_ordered_silhouettes[i].flatten();
     }
     return ret;
 }
