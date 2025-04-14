@@ -10,7 +10,7 @@ on the mesh in real-time.
 import time
 from typing import Any, Optional, Tuple, Dict, List
 import numpy as np
-from examples.mesh_viewer import MeshViewer
+from demo.mesh_viewer import MeshViewer
 from gquery.shapes.mesh import Mesh
 from gquery.core.fwd import *
 from gquery.util.obj_loader import load_obj_3d

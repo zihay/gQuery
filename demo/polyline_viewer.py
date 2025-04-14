@@ -8,7 +8,7 @@ import time
 from typing import Optional, List, Tuple, Dict, Any, Union
 import matplotlib.pyplot as plt
 
-from examples.visualizer import Visualizer
+from demo.visualizer import Visualizer
 from gquery.shapes.polyline import Polyline
 from gquery.core.fwd import Float, Array2
 

@@ -8,7 +8,7 @@ with the polyline in real-time.
 """
 
 import numpy as np
-from examples.polyline_viewer import PolylineViewer
+from demo.polyline_viewer import PolylineViewer
 from gquery.shapes.polyline import Polyline
 from gquery.core.fwd import *
 import polyscope as ps

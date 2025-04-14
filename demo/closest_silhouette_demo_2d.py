@@ -8,7 +8,7 @@ silhouette point (a vertex where two edges meet) on the polyline in real-time.
 """
 
 import numpy as np
-from examples.polyline_viewer import PolylineViewer
+from demo.polyline_viewer import PolylineViewer
 from gquery.shapes.polyline import Polyline
 from gquery.core.fwd import *
 from gquery.util.obj_loader import load_obj_2d
